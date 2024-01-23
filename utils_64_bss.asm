@@ -4,6 +4,7 @@ get_proc_addr: dq ?
 load_library_a: dq ?
 get_module_handle_a: dq ?
 get_current_process: dq ?
+get_std_handle: dq ?
 open_process: dq ?
 create_file_a: dq ?
 write_file: dq ?

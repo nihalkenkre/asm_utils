@@ -3,7 +3,7 @@ default rel
 section .text
 global main
 
-%include '..\utils\utils_64_text.asm'
+%include '..\utils_64_text.asm'
 
 extern WideCharToMultiByte
 
@@ -94,10 +94,10 @@ wide_char_str: dw __utf16__ ('wide_char_str'), 0
 veracrypt: db 'VeraCrypt.exe', 0
 .len equ $ - veracrypt
 
-%include '..\utils\utils_64_data.asm'
+%include '..\utils_64_data.asm'
 
 section .bss
 multi_byte_str: resb 128
 .len equ $ - multi_byte_str
 
-%include '..\utils\utils_64_bss.asm'
+%include '..\utils_64_bss.asm'

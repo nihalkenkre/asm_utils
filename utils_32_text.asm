@@ -949,6 +949,14 @@ populate_kernel_function_ptrs_by_name:
     mov [get_current_process], eax              ; GetCurrentProcess addr
 
     push dword 0
+    push dword get_std_handle_xor.len
+    push dword get_std_handle_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [get_std_handle], eax                   ; GetStdHandle addr
+
+    push dword 0
     push dword open_process_xor.len
     push dword open_process_xor
     push dword [ebp + 8]
@@ -1172,6 +1180,39 @@ find_target_process_id:
 .loop_end:
 
 .shutdown:
+
+    leave
+    ret 8
+
+; arg0: ptr to string       ebp + 8
+; arg1: str len             ebp + 12
+print_string:
+    push ebp
+    mov ebp, esp
+
+    ; ebp - 4 = return value
+    ; ebp - 8 = std handle
+    sub esp, 8                      ; allocate local variable space
+
+    mov dword [ebp - 8], 0          ; return value
+
+    push STD_HANDLE_ENUM
+    call [get_std_handle]
+
+    cmp eax, INVALID_HANDLE_VALUE   ; is handle invalid
+    je .shutdown
+
+    mov [ebp - 4], eax              ; std handle
+
+    push 0
+    push 0
+    push dword [ebp + 12]           ; str len
+    push dword [ebp + 8]            ; ptr to str
+    push dword [ebp - 4]            ; std handle
+    call [write_file]
+
+.shutdown:
+    mov eax, [ebp - 4]              ; return value
 
     leave
     ret 8

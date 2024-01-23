@@ -1,6 +1,6 @@
 section .text
 
-%include '..\utils\\utils_32_text.asm'
+%include '..\utils_32_text.asm'
 
 global main
 main:
@@ -105,10 +105,10 @@ InterlockedPushListSList_str: db 'InterlockedPushListSList', 0
 veracrypt_xor: db 0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x55, 0x48, 0x55, 0x0
 .len equ $ - veracrypt_xor - 1
 
-%include '..\utils\utils_32_data.asm'
+%include '..\utils_32_data.asm'
 
 section .bss
 dst: resb 128
 wdst: resw 128
 
-%include '..\utils\utils_32_bss.asm'
+%include '..\utils_32_bss.asm'

@@ -3,6 +3,7 @@ get_last_error: dd ?
 get_proc_addr: dd ?
 load_library_a: dd ?
 get_current_process: dd ?
+get_std_handle: dd ?
 open_process: dd ?
 create_file_a: dd ?
 write_file: dd ?

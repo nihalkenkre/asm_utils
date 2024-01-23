@@ -1056,6 +1056,14 @@ populate_kernel_function_ptrs_by_name:
     mov [get_current_process], rax              ; GetCurrentProcess addr
 
     mov rcx, [rbp + 16]
+    mov rdx, get_std_handle_xor
+    mov r8, get_std_handle_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [get_std_handle], rax                   ; GetStdHandle addr
+
+    mov rcx, [rbp + 16]
     mov rdx, open_process_xor
     mov r8, open_process_xor.len
     xor r9, r9
@@ -1269,6 +1277,44 @@ find_target_process_id:
 
     add rsp, 32                             ; free shadow space
     add rsp, 592                            ; free local variable space
+
+    leave
+    ret
+
+; arg0: ptr to str          rcx
+; arg1: str len             rdx
+print_string:
+    push rbp
+    mov rbp, rsp
+
+    mov [rbp + 16], rcx                     ; ptr to str
+    mov [rbp + 24], rdx                     ; str len
+
+    ; rbp - 8 = return value
+    ; rbp - 16 = std handle
+    sub rsp, 16                             ; allocate local variable space
+    sub rsp, 32                             ; allocate shadow space
+
+    mov qword [rbp - 8], 0                  ; return value
+
+    mov rcx, STD_HANDLE_ENUM
+    call [get_std_handle]
+
+    cmp rax, INVALID_HANDLE_VALUE           ; is handle invalid
+    je .shutdown
+
+    sub rsp, 16                             ; 1 arg + 8 bytes padding
+    mov rcx, [rbp - 8]                      ; std handle
+    mov rdx, [rbp + 16]                     ; ptr to str
+    mov r8, [rbp + 24]                      ; str len
+    xor r9, r9
+    call [write_file]
+    add rsp, 16                             ; 1 arg + 8 bytes padding
+
+
+.shutdown:
+
+    mov rax, [rbp - 8]                      ; return value
 
     leave
     ret
