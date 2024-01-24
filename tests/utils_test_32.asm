@@ -96,9 +96,6 @@ str1: db 'test_string', 0
 str2: db 'test_string', 0
 .len equ $ - str2 - 1
 
-boomlade_xor: db 0x52, 0x5f, 0x5f, 0x5d, 0x5c, 0x51, 0x54, 0x55, 0
-.len equ $ - boomlade_xor - 1
-
 InterlockedPushListSList_str: db 'InterlockedPushListSList', 0
 .len equ $ - InterlockedPushListSList_str
 

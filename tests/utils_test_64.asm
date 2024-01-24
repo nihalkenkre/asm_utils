@@ -23,81 +23,110 @@ main:
     push rbp
     mov rbp, rsp
 
+    ; rbp - 8 = kernel handle
+    sub rsp, 8                          ; allocate local variable space
     sub rsp, 32                         ; allocate shadow space
 
-    call get_kernel_module_handle       ; kernel handle
+    mov rcx, src
+    mov rdx, dst
+    mov r8, src.len
+    call memcpy
 
-    mov rcx, rax
-    call populate_kernel_function_ptrs_by_name
+    mov rcx, src
+    call strlen
 
-    mov rsi, 0xdeadbabe
-    mov rdi, 0xdeadbabe
-    mov rbx, 0xdeadbabe
+    mov rcx, dst 
+    call strlen
 
-    mov rcx, test_str1_xor
-    mov rdx, test_str2_xor
-    mov r8, test_str1_xor.len
+    mov rcx, wsrc
+    call wstrlen
+
+    mov rcx, src
+    mov rdx, dst
+    call strcpy
+
+    mov rcx, wsrc
+    mov rdx, wdst
+    call wstrcpy
+
+    mov rcx, src
+    mov rdx, wsrc
+    mov r8, src.len
+    call strcmpiAW
+
+    mov rcx, str1
+    mov rdx, str2
+    mov r8, str1.len
     call strcmpAA
 
-    mov rcx, boomlade_xor
-    mov rdx, boomlade_xor.len
+    mov rcx, str1
+    mov rdx, str2
+    mov r8, str1.len
+    call strcmpiAA
+
+    mov rcx, str2
+    mov rdx, 'r'
+    call strchr
+
+    mov rcx, veracrypt_xor
+    mov rdx, veracrypt_xor.len
     mov r8, xor_key
     mov r9, xor_key.len
     call my_xor
 
-    mov rcx, sleep_xor
-    call [output_debug_string_a]
+    call get_kernel_module_handle
 
-    sub rsp, 32
-    mov rcx, 0xfde9
-    xor rdx, rdx
-    mov r8, wide_char_str
-    mov r9, wide_char_str.len
-    mov qword [rsp + 32], multi_byte_str
-    mov qword [rsp + 40], multi_byte_str.len
-    mov qword [rsp + 48], 0
-    mov qword [rsp + 56], 0
-    call WideCharToMultiByte
-    add rsp, 32
+    mov [rbp - 8], eax                            ; kernel handle
 
-    mov rcx, wide_char_str
-    mov rdx, multi_byte_str
-    call wstrcpy
+    mov rcx, [rbp - 8]                            ; kernel handle
+    call populate_kernel_function_ptrs_by_name
 
-    mov rcx, veracrypt
-    mov rdx, veracrypt.len
+    mov rcx, [rbp - 8]                            ; kernel handle
+    mov rdx, sleep_xor
+    call get_proc_address_by_get_proc_addr
+
+    mov rcx, ntdll
+    call [load_library_a]
+
+    mov rcx, [rbp - 8]                            ; kernel handle
+    mov rdx, InterlockedPushListSList_str
+    mov r8, InterlockedPushListSList_str.len
+    call get_proc_address_by_name
+
+    mov rcx, veracrypt_xor
+    mov rdx, veracrypt_xor.len
     call find_target_process_id
-
-    mov rcx, veracrypt
-    mov rdx, '.'
-    call strchr
-
-    add rsp, 32         ; free shadow space
 
 .shutdown:
     leave
     ret
 
 section .data
-test_str1_xor: db 'wide_char_str', 0
-.len equ $ - test_str1_xor
+src: db 'test_string', 0
+.len equ $ - src
 
-test_str2_xor: db 'wide_char_str', 0
-.len equ $ - test_str2_xor
+wsrc: dw __utf16__('tESt_sTrIng'), 0
+.len equ ($ - wsrc) / 2
 
-boomlade_xor: db 0x52, 0x5f, 0x5f, 0x5d, 0x5c, 0x51, 0x54, 0x55, 0
-.len equ $ - boomlade_xor - 1 
+str1: db 'test_string', 0
+.len equ $ - str1 - 1
 
-wide_char_str: dw __utf16__ ('wide_char_str'), 0
-.len equ $ - wide_char_str
+str2: db 'test_string', 0
+.len equ $ - str2 - 1
 
-veracrypt: db 'VeraCrypt.exe', 0
-.len equ $ - veracrypt
+InterlockedPushListSList_str: db 'InterlockedPushListSList', 0
+.len equ $ - InterlockedPushListSList_str
+
+veracrypt_xor: db 0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x55, 0x48, 0x55, 0x0
+.len equ $ - veracrypt_xor - 1
+
+ntdll: db 'ntdll.dll', 0
+.len equ $ - ntdll
 
 %include '..\utils_64_data.asm'
 
 section .bss
-multi_byte_str: resb 128
-.len equ $ - multi_byte_str
+dst: resb 128
+wdst: resw 128
 
 %include '..\utils_64_bss.asm'
