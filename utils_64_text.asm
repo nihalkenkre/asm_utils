@@ -124,12 +124,12 @@ strcpy:
     mov rdi, [rbp + 24]             ; dst
 
 .loop:
-    lodsb                           ; load from rsi to al
+    lodsb                           ; using lod and sto to load value to al so it can be checked for 0
+    stosb
 
     cmp al, 0                       ; end of string ?
     je .loop_end                    ; yes
 
-    stosb                           ; store al to rdi
     jmp .loop
 
 .loop_end:
@@ -164,12 +164,12 @@ wstrcpy:
     mov rdi, [rbp + 24]             ; dst
 
 .loop:
-    lodsw                           ; load from rsi to ax
+    lodsw                           ; using lod and sto to load value to ax so it can be checked for 0
+    stosw
 
     cmp ax, 0                       ; end of string ?
     je .loop_end                    ; yes
 
-    stosw                           ; store ax to rdi
     jmp .loop
 
 .loop_end:
@@ -862,7 +862,7 @@ get_proc_address_by_name:
     jmp .shutdown
 
 .function_found:
-    mov rax, 2
+    mov rax, 2                              ; size of ordinal value
     mul r11                                 ; index * size of element of addrees of name ordinals(word)
     add rax, [rbp - 56]                     ; address of name ordinals + n
     movzx eax, word [rax]                   ; address of name ordinals [n]; index into address of functions
@@ -931,6 +931,9 @@ get_proc_address_by_name:
     mov rdx, dll_xor
     call strappend
     
+    cmp qword [load_library_a], 0           ; is load_library_a proc avaiable
+    je .error_shutdown
+    
     mov rcx, rbp
     sub rcx, 472                            ; ptr to dll name + ext
     call [load_library_a]                   ; library addr
@@ -948,6 +951,11 @@ get_proc_address_by_name:
     call get_proc_address_by_name           ; proc addr
 
     mov [rbp - 8], rax                      ; proc addr
+
+    jmp .shutdown
+
+.error_shutdown:
+    mov qword [rbp - 8], 0                  ; proc addr not found
 
 .shutdown:
     mov rbx, [rbp - 344]                    ; restore rbx
@@ -1306,35 +1314,29 @@ find_target_process_id:
     leave
     ret
 
-; arg0: ptr to str          rcx
-; arg1: str len             rdx
+; arg0: handle              rcx
+; arg0: ptr to str          rdx
+; arg1: str len             r8
 print_string:
     push rbp
     mov rbp, rsp
 
-    mov [rbp + 16], rcx                     ; ptr to str
-    mov [rbp + 24], rdx                     ; str len
+    mov [rbp + 16], rcx                     ; handle
+    mov [rbp + 24], rdx                     ; ptr to str
+    mov [rbp + 32], r8                      ; str len
 
     ; rbp - 8 = return value
-    ; rbp - 16 = std handle
+    ; rbp - 16 = 8 bytes padding
     sub rsp, 16                             ; allocate local variable space
-    sub rsp, 32                             ; allocate shadow space
+    sub rsp, 48                             ; allocate shadow space, extra args, padding bytes
 
     mov qword [rbp - 8], 0                  ; return value
 
-    mov rcx, STD_HANDLE_ENUM
-    call [get_std_handle]
-
-    cmp rax, INVALID_HANDLE_VALUE           ; is handle invalid
-    je .shutdown
-
-    sub rsp, 16                             ; 1 arg + 8 bytes padding
     mov rcx, [rbp - 8]                      ; std handle
     mov rdx, [rbp + 16]                     ; ptr to str
     mov r8, [rbp + 24]                      ; str len
     xor r9, r9
     call [write_file]
-    add rsp, 16                             ; 1 arg + 8 bytes padding
 
 .shutdown:
 

@@ -8,7 +8,8 @@ main:
     mov ebp, esp
 
     ; ebp - 4 = kernel handle
-    sub esp, 4
+    ; ebp - 516 = sprintf buffer
+    sub esp, 516
 
     push src.len
     push dst
@@ -50,6 +51,13 @@ main:
     push 'r'
     push str2
     call strchr
+
+    ; push veracrypt_xor.len
+    ; push veracrypt_xor
+    ; push sprintf_str
+    ; mov eax, ebp
+    ; sub ebp, 516                                    ; sprintf buffer
+    ; call sprintf
 
     push xor_key.len
     push xor_key
@@ -101,6 +109,9 @@ InterlockedPushListSList_str: db 'InterlockedPushListSList', 0
 
 veracrypt_xor: db 0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x55, 0x48, 0x55, 0x0
 .len equ $ - veracrypt_xor - 1
+
+sprintf_str: db 'This is a %s process', 0
+.len equ $ - sprintf_str
 
 %include '..\utils_32_data.asm'
 

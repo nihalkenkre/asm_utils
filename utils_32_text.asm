@@ -115,12 +115,12 @@ strcpy:
     mov edi, [ebp + 12]         ; dst
 
 .loop:
-    lodsb
+    lodsb                       ; using lod and sto to load value to al so it can be checked for 0
+    stosb
 
     cmp al, 0                   ; end of string ?
     je .loop_end                ; yes
 
-    stosb
     jmp .loop
 
 .loop_end:
@@ -152,12 +152,12 @@ wstrcpy:
     mov edi, [ebp + 12]         ; dst
 
 .loop:
-    lodsw
+    lodsw                       ; using lod and sto to load value to ax so it can be checked for 0
+    stosw
 
     cmp ax, 0                   ; end of string ?   
     je .loop_end                ; yes
 
-    stosw
     jmp .loop
 
 .loop_end:
@@ -796,7 +796,7 @@ get_proc_address_by_name:
     push eax
     call strchr                                 ; ptr to chr in eax
     
-    mov byte [eax], 0
+    mov byte [eax], 0                           ; replade the '.' with 0
     inc eax
 
     mov [ebp - 288], eax                        ; forwarded function name
@@ -1151,23 +1151,24 @@ find_target_process_id:
     mov eax, ebp
     sub eax, 304                                ; &processentry
     push eax
-    push dword [ebp - 8]                              ; snapshot handle 
+    push dword [ebp - 8]                        ; snapshot handle 
     call [process32_next]
 
     cmp eax, 0
     je .loop_end
-        push dword [ebp + 12]                   ; proc name len
-        mov eax, ebp
-        sub eax, 304                            ; processEntry32
-        add eax, 36                             ; processEntry32.szExeFile
-        push eax
-        push dword [ebp + 8]                    ; proc name
-        call strcmpiAA
 
-        cmp eax, 1                              ; are strings equal
-        je .process_found
+    push dword [ebp + 12]                       ; proc name len
+    mov eax, ebp
+    sub eax, 304                                ; processEntry32
+    add eax, 36                                 ; processEntry32.szExeFile
+    push eax
+    push dword [ebp + 8]                        ; proc name
+    call strcmpiAA
 
-        jmp .loop
+    cmp eax, 1                                  ; are strings equal
+    je .process_found
+
+    jmp .loop
 
 .process_found:
     mov eax, ebp
@@ -1175,44 +1176,58 @@ find_target_process_id:
     add eax, 8                                  ; processentry32->procID
 
     mov eax, [eax]
-    mov [ebp - 4], eax
+    mov [ebp - 4], eax                          ; return value
 
+    jmp .shutdown
 .loop_end:
 
 .shutdown:
 
+    mov eax, [ebp - 4]                          ; return value
+
     leave
     ret 8
 
-; arg0: ptr to string       ebp + 8
-; arg1: str len             ebp + 12
+; arg0: ptr to buffer               ebp + 8
+; arg1: ptr to str                  ebp + 12
+; arg2 ....: args to sprintf        ebp + 16 ...
+sprintf:
+    push ebp
+    mov ebp, esp
+
+    ; ebp - 4 = return value
+    sub esp, 4                      ; allocate local variable space
+
+    mov dword [ebp - 4], 0          ; return value
+
+.shutdown:
+
+    mov eax, [ebp - 4]              ; return value
+
+    leave
+    ret
+
+; arg0: handle              ebp + 8
+; arg0: ptr to string       ebp + 12
+; arg1: str len             ebp + 16
 print_string:
     push ebp
     mov ebp, esp
 
     ; ebp - 4 = return value
-    ; ebp - 8 = std handle
-    sub esp, 8                      ; allocate local variable space
+    sub esp, 4                      ; allocate local variable space
 
-    mov dword [ebp - 8], 0          ; return value
-
-    push STD_HANDLE_ENUM
-    call [get_std_handle]
-
-    cmp eax, INVALID_HANDLE_VALUE   ; is handle invalid
-    je .shutdown
-
-    mov [ebp - 4], eax              ; std handle
+    mov dword [ebp - 4], 0          ; return value
 
     push 0
     push 0
-    push dword [ebp + 12]           ; str len
-    push dword [ebp + 8]            ; ptr to str
-    push dword [ebp - 4]            ; std handle
+    push dword [ebp + 16]           ; str len
+    push dword [ebp + 12]           ; ptr to str
+    push dword [ebp + 8]            ; std handle
     call [write_file]
 
 .shutdown:
     mov eax, [ebp - 4]              ; return value
 
     leave
-    ret 8
+    ret 12
