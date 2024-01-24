@@ -52,12 +52,14 @@ main:
     push str2
     call strchr
 
-    ; push veracrypt_xor.len
-    ; push veracrypt_xor
-    ; push sprintf_str
-    ; mov eax, ebp
-    ; sub ebp, 516                                    ; sprintf buffer
-    ; call sprintf
+    push veracrypt_xor.len
+    push veracrypt_xor
+    push sprintf_str
+    mov eax, ebp
+    sub eax, 516                                    ; 512 byte sprintf buffer
+    push eax
+    call sprintf
+    add esp, 16                                     ; special variadic function, stack cleared by caller
 
     push xor_key.len
     push xor_key
@@ -110,7 +112,7 @@ InterlockedPushListSList_str: db 'InterlockedPushListSList', 0
 veracrypt_xor: db 0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x55, 0x48, 0x55, 0x0
 .len equ $ - veracrypt_xor - 1
 
-sprintf_str: db 'This is a %s process', 0
+sprintf_str: db 'This is a %s process, with name lengthi %d', 0
 .len equ $ - sprintf_str
 
 %include '..\utils_32_data.asm'

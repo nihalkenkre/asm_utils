@@ -1196,9 +1196,53 @@ sprintf:
     mov ebp, esp
 
     ; ebp - 4 = return value
-    sub esp, 4                      ; allocate local variable space
+    ; ebp - 8 = esi
+    ; ebp - 12 = edi
+    ; ebp - 16 = no of placeholders
+    sub esp, 16                     ; allocate local variable space
 
     mov dword [ebp - 4], 0          ; return value
+    mov [ebp - 8], esi              ; store esi
+    mov [ebp - 12], edi             ; store edi
+    mov dword [ebp - 16], 0         ; placeholders
+
+    mov esi, [ebp + 12]             ; ptr to str
+    mov edi, [ebp + 8]              ; ptr to buffer
+
+.loop:
+    lodsb
+
+    cmp al, '%'
+    je .process_placeholder
+
+    stosb
+
+    cmp al, 0
+    je .end_of_loop
+
+    jmp .loop
+    .process_placeholder:
+        lodsb
+
+        cmp al, 's'
+        je .process_string
+
+        cmp al, 'd'
+        je .process_decimal
+
+        cmp al, 'x'
+        je .process_hex
+
+        jmp .loop
+
+        .process_string:
+            jmp .loop
+        .process_decimal:
+            jmp .loop
+        .process_hex:
+            jmp .loop
+
+.end_of_loop:
 
 .shutdown:
 
