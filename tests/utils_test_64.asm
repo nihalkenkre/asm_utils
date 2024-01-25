@@ -102,6 +102,9 @@ main:
     ret
 
 section .data
+STD_HANDLE_ENUM equ -11
+INVALID_HANDLE_VALUE equ -1
+
 src: db 'test_string', 0
 .len equ $ - src
 
