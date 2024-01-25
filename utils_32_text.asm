@@ -115,7 +115,7 @@ strcpy:
     mov edi, [ebp + 12]         ; dst
 
 .loop:
-    lodsb                       ; using lod and sto to load value to al so it can be checked for 0
+    lodsb                       ; not using movsb so the byte can be checked if it is 0
     stosb
 
     cmp al, 0                   ; end of string ?
@@ -152,7 +152,7 @@ wstrcpy:
     mov edi, [ebp + 12]         ; dst
 
 .loop:
-    lodsw                       ; using lod and sto to load value to ax so it can be checked for 0
+    lodsw                       ; not using movsb so the byte can be checked if it is 0
     stosw
 
     cmp ax, 0                   ; end of string ?   
@@ -1198,13 +1198,14 @@ sprintf:
     ; ebp - 4 = return value
     ; ebp - 8 = esi
     ; ebp - 12 = edi
-    ; ebp - 16 = no of placeholders
-    sub esp, 16                     ; allocate local variable space
+    ; ebp - 16 = place holder count
+    ; ebp - 20 = string args len
+    sub esp, 20                     ; allocate local variable space
 
     mov dword [ebp - 4], 0          ; return value
     mov [ebp - 8], esi              ; store esi
     mov [ebp - 12], edi             ; store edi
-    mov dword [ebp - 16], 0         ; placeholders
+    mov dword [ebp - 16], 0         ; place holder count
 
     mov esi, [ebp + 12]             ; ptr to str
     mov edi, [ebp + 8]              ; ptr to buffer
@@ -1233,13 +1234,41 @@ sprintf:
         cmp al, 'x'
         je .process_hex
 
+        stosb                           ; not a placeholder, must be a string, copy it
+
         jmp .loop
 
         .process_string:
+            ; get the argument for this placeholder, offset from ebp + 16
+            mov eax, 4
+            mul dword [ebp - 16]        ; placeholder count
+
+            add eax, 16                 ; offset into args list to get the arg for this placeholder
+
+            mov [ebp - 20], eax         ; string arg len
+
+            push edi
+            push dword [ebp + eax]
+            call strcpy
+
+            mov eax, [ebp - 20]         ; string arg len
+
+            push dword [ebp + eax]
+            call strlen                 ; str len in eax
+
+            add edi, eax
+
+            inc dword [ebp - 16]        ; placeholder count
             jmp .loop
+
         .process_decimal:
+
+            inc dword [ebp - 16]        ; placeholder count
             jmp .loop
+
         .process_hex:
+
+            inc dword [ebp - 16]        ; placeholder count
             jmp .loop
 
 .end_of_loop:
