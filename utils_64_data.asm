@@ -1,5 +1,3 @@
-STD_HANDLE_ENUM equ -11
-INVALID_HANDLE_VALUE equ -1
 TH32CS_SNAPPROCESS equ 0x2
 PROCESS_ALL_ACCESS equ 0x1fffff
 
@@ -94,3 +92,5 @@ output_debug_string_a_xor: db 0x7f, 0x45, 0x44, 0x40, 0x45, 0x44, 0x74, 0x55, 0x
 
 dll_xor: db 0x1e, 0x54, 0x5c, 0x5c, 0
 .len equ $ - dll_xor - 1
+
+hex_digits: db '0123456789ABCDEF'

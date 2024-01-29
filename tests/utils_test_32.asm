@@ -52,18 +52,22 @@ main:
     push str2
     call strchr
 
-    ; push veracrypt_xor.len
-    ; push veracrypt_xor
-    ; push sprintf_str
-    ; mov eax, ebp
-    ; sub ebp, 516                                    ; sprintf buffer
-    ; call sprintf
-
     push xor_key.len
     push xor_key
     push veracrypt_xor.len
     push veracrypt_xor
     call my_xor
+
+    push dword src.len
+    push dword veracrypt_xor.len
+    push src
+    push veracrypt_xor
+    push sprintf_str
+    mov eax, ebp
+    sub eax, 516                                    ; 512 byte sprintf buffer
+    push eax
+    call sprintf
+    add esp, 24                                     ; special variadic function, stack cleared by caller
 
     call get_kernel_module_handle
 
@@ -71,6 +75,11 @@ main:
 
     push dword [ebp - 4]                            ; kernel handle
     call populate_kernel_function_ptrs_by_name
+
+    mov eax, ebp
+    sub eax, 516
+    push eax
+    call [output_debug_string_a] 
 
     push sleep_xor
     push dword [ebp - 4]                            ; kernel handle
@@ -92,8 +101,11 @@ main:
     ret
 
 section .data
+STD_HANDLE_ENUM equ -11
+INVALID_HANDLE_VALUE equ -1
+
 src: db 'test_string', 0
-.len equ $ - src
+.len equ $ - src - 1
 
 wsrc: dw __utf16__('tESt_sTrIng'), 0
 .len equ ($ - wsrc) / 2
@@ -110,7 +122,7 @@ InterlockedPushListSList_str: db 'InterlockedPushListSList', 0
 veracrypt_xor: db 0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x55, 0x48, 0x55, 0x0
 .len equ $ - veracrypt_xor - 1
 
-sprintf_str: db 'This is a %s process', 0
+sprintf_str: db 'This is %s, %s, veracrypt name length: %d, test_string name length: %d.', 0
 .len equ $ - sprintf_str
 
 %include '..\utils_32_data.asm'

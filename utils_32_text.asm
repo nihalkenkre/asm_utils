@@ -115,8 +115,8 @@ strcpy:
     mov edi, [ebp + 12]         ; dst
 
 .loop:
-    lodsb                       ; using lod and sto to load value to al so it can be checked for 0
-    stosb
+    lodsb                       ; not using movsb so the byte can be checked if it is 0, and esi advances before check, so check is incorrect
+    stosb                       ; storing before checking because we need the zero at the end of the string to be copied too
 
     cmp al, 0                   ; end of string ?
     je .loop_end                ; yes
@@ -152,8 +152,8 @@ wstrcpy:
     mov edi, [ebp + 12]         ; dst
 
 .loop:
-    lodsw                       ; using lod and sto to load value to ax so it can be checked for 0
-    stosw
+    lodsw                       ; not using movsb so the byte can be checked if it is 0, and esi advances before check, so check is incorrect
+    stosw                       ; storing before checking because we need the zero at the end of the string to be copied too
 
     cmp ax, 0                   ; end of string ?   
     je .loop_end                ; yes
@@ -608,7 +608,7 @@ get_kernel_module_handle:
         add eax, 0x4                            ; BaseDLLName->Buffer
 
         push kernel32_xor.len
-        push dword [eax]                      ; BaseDLLName.Buffer
+        push dword [eax]                        ; BaseDLLName.Buffer
         push kernel32_xor
         call strcmpiAW
 
@@ -886,9 +886,9 @@ unxor_and_get_proc_addr:
 
     cmp dword [ebp + 20], 1                     ; is get proc addr
     jne .not_get_proc_addr
-        push dword [ebp + 16]                         ; xor str len
-        push dword [ebp + 12]                         ; xor str
-        push dword [ebp + 8]                          ; base addr
+        push dword [ebp + 16]                   ; xor str len
+        push dword [ebp + 12]                   ; xor str
+        push dword [ebp + 8]                    ; base addr
         call get_proc_address_by_name
 
         mov [ebp - 4], eax                      ; return value
@@ -896,9 +896,9 @@ unxor_and_get_proc_addr:
         jmp .shutdown
 
 .not_get_proc_addr:
-    push dword [ebp + 16]                             ; xor str len
-    push dword [ebp + 12]                             ; xor str
-    push dword [ebp + 8]                              ; base addr
+    push dword [ebp + 16]                       ; xor str len
+    push dword [ebp + 12]                       ; xor str
+    push dword [ebp + 8]                        ; base addr
     call get_proc_address_by_get_proc_addr
 
     mov [ebp - 4], eax                          ; return value
@@ -938,7 +938,7 @@ populate_kernel_function_ptrs_by_name:
     push dword [ebp + 8]
     call unxor_and_get_proc_addr                ; proc addr
 
-    mov [load_library_a], eax                      ; load_library_aA addr
+    mov [load_library_a], eax                   ; load_library_aA addr
 
     push dword 0
     push dword get_current_process_xor.len
@@ -970,7 +970,7 @@ populate_kernel_function_ptrs_by_name:
     push dword [ebp + 8]
     call unxor_and_get_proc_addr                ; proc addr
 
-    mov [create_file_a], eax                      ; CreateFileA addr
+    mov [create_file_a], eax                    ; CreateFileA addr
 
     push dword 0
     push dword write_file_xor.len
@@ -1141,7 +1141,7 @@ find_target_process_id:
     mov eax, ebp
     sub eax, 304                                ; &processentry
     push eax
-    push dword [ebp - 8]                              ; snapshot handle 
+    push dword [ebp - 8]                        ; snapshot handle 
     call [process32_first]
 
     cmp eax, 0                                  ; if !process32First
@@ -1196,16 +1196,173 @@ sprintf:
     mov ebp, esp
 
     ; ebp - 4 = return value
-    sub esp, 4                      ; allocate local variable space
+    ; ebp - 8 = esi
+    ; ebp - 12 = edi
+    ; ebp - 16 = place holder count
+    ; ebp - 20 = offset from ebp
+    ; ebp - 24 = number of bits to shift right
+    ; ebp - 28 = ebx
+    ; ebp - 32 = quotient from print decimal division
+    ; ebp - 44 = temp buffer for decimal conversion (10 digits) + 2 byte padding
+    ; ebp - 48 = temp save esi for decimal conversion
+    ; ebp - 52 = temp save edi for decimal conversion
+    sub esp, 52                             ; allocate local variable space
 
-    mov dword [ebp - 4], 0          ; return value
+    mov dword [ebp - 4], 0                  ; return value
+    mov [ebp - 8], esi                      ; save esi
+    mov [ebp - 12], edi                     ; save edi
+    mov dword [ebp - 16], 0                 ; place holder count
+    mov [ebp - 28], ebx                     ; save ebx
+
+    mov esi, [ebp + 12]                     ; ptr to str
+    mov edi, [ebp + 8]                      ; ptr to buffer
+
+.loop:
+    lodsb
+
+    cmp al, '%'
+    je .process_placeholder
+
+    stosb
+
+    cmp al, 0
+    je .end_of_loop
+
+    jmp .loop
+    .process_placeholder:
+        lodsb
+
+        cmp al, 's'
+        je .print_string
+
+        cmp al, 'd'
+        je .print_decimal
+
+        cmp al, 'x'
+        je .print_hex
+
+        stosb                               ; not a placeholder, must be a string, copy it
+
+        jmp .loop
+
+        .print_string:
+            ; get the argument for this placeholder, offset from ebp + 16
+            mov eax, 4
+            mul dword [ebp - 16]            ; placeholder count
+
+            add eax, 16                     ; offset into args list to get the arg for this placeholder
+
+            mov [ebp - 20], eax             ; offset from ebp
+
+            ; copy arg string to the buffer
+            push edi
+            push dword [ebp + eax]
+            call strcpy
+
+            mov eax, [ebp - 20]             ; offset from ebp
+
+            ; find strlen to get edi to the end of the str in buffer
+            push dword [ebp + eax]          ; arg
+            call strlen                     ; str len in eax
+
+            add edi, eax
+
+            inc dword [ebp - 16]            ; placeholder count
+            jmp .loop
+
+        .print_decimal:
+            mov eax, 4
+            mul dword [ebp - 16]            ; placeholder count
+            add eax, 16                     ; offset into args list to get the arg for this placeholder
+
+            mov [ebp - 20], eax             ; offset from ebp
+            mov eax, [ebp + eax]            ; arg
+
+            mov ecx, 10                     ; divisor
+            xor ebx, ebx                    ; number of digits in the decimal
+
+            mov [ebp - 48], esi             ; temp save esi
+            mov [ebp - 52], edi             ; temp save edi
+
+            mov edi, ebp
+            sub edi, 33                     ; temp buffer for digits (reverse)
+            std                             ; set direction flag since the digits are written in reverse order
+            .print_decimal_loop:
+                xor edx, edx
+                div ecx
+
+                mov [ebp - 32], eax         ; save quotient
+                mov eax, edx                ; remainder
+                add eax, 48                 ; ascii value of integer
+
+                stosb
+
+                mov eax, [ebp - 32]         ; restore quotient
+                
+                inc ebx
+                cmp eax, 0
+                jne .print_decimal_loop
+
+            mov edi, [ebp - 52]             ; temp restore edi
+
+            cld                             ; clear direction flag
+
+            mov esi, ebp
+            sub esi, 32                     ; temp buffer for digits (reverse)
+            sub esi, ebx
+
+            .final_copy_loop:
+                movsb
+
+                dec ebx
+                jnz .final_copy_loop
+
+            mov esi, [ebp - 48]             ; temp restore esi
+            inc dword [ebp - 16]            ; placeholder count
+            jmp .loop
+
+        .print_hex:
+            mov eax, 4
+            mul dword [ebp - 16]            ; placeholder count
+            add eax, 16                     ; offset into args list to get the arg for this placeholder
+
+            mov [ebp - 20], eax             ; offset from ebp
+
+            mov dword [ebp - 24], 32        ; start with 32 bits to shift right
+            mov edx, hex_digits
+
+            .print_hex_loop:
+                sub dword [ebp - 24], 4     ; nbits to shift right
+                mov ecx, [ebp - 24]         ; nbits to shift right
+
+                mov eax, [ebp - 20]         ; offset from ebp
+                mov eax, [ebp + eax]        ; arg
+
+                shr eax, cl                 ; shift right and 'and', so just the nibble is left in al
+                and al, 0x0f
+
+                movzx ebx, byte al
+                mov al, [edx + ebx]         ; the corresponding 'letter' in al
+
+                stosb
+
+                cmp dword [ebp - 24], 0     ; nbits to shift right
+                jne .print_hex_loop
+
+            inc dword [ebp - 16]            ; placeholder count
+            jmp .loop
+
+.end_of_loop:
 
 .shutdown:
 
-    mov eax, [ebp - 4]              ; return value
+    mov ebx, [ebp - 28]                     ; restore ebx
+    mov edi, [ebp - 12]                     ; restore edi
+    mov esi, [ebp - 8]                      ; restore esi
+    mov eax, [ebp - 4]                      ; return value
 
     leave
-    ret
+    ret                                     ; no stack clearing here, since this is a special variadic function, callee cannot know how many args have been passed, cleared by caller
 
 ; arg0: handle              ebp + 8
 ; arg0: ptr to string       ebp + 12
