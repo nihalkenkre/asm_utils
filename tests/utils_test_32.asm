@@ -58,16 +58,16 @@ main:
     push veracrypt_xor
     call my_xor
 
-    push dword 0xb00bcafe
-    push dword 1024
-    push str1
+    push dword src.len
+    push dword veracrypt_xor.len
+    push src
     push veracrypt_xor
     push sprintf_str
     mov eax, ebp
     sub eax, 516                                    ; 512 byte sprintf buffer
     push eax
     call sprintf
-    add esp, 16                                     ; special variadic function, stack cleared by caller
+    add esp, 24                                     ; special variadic function, stack cleared by caller
 
     call get_kernel_module_handle
 
@@ -105,7 +105,7 @@ STD_HANDLE_ENUM equ -11
 INVALID_HANDLE_VALUE equ -1
 
 src: db 'test_string', 0
-.len equ $ - src
+.len equ $ - src - 1
 
 wsrc: dw __utf16__('tESt_sTrIng'), 0
 .len equ ($ - wsrc) / 2
@@ -122,7 +122,7 @@ InterlockedPushListSList_str: db 'InterlockedPushListSList', 0
 veracrypt_xor: db 0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x55, 0x48, 0x55, 0x0
 .len equ $ - veracrypt_xor - 1
 
-sprintf_str: db 'This is %s, %s, veracrypt name length: %x, test_string name length: %x.', 0
+sprintf_str: db 'This is %s, %s, veracrypt name length: %d, test_string name length: %d.', 0
 .len equ $ - sprintf_str
 
 %include '..\utils_32_data.asm'
