@@ -1261,7 +1261,7 @@ sprintf:
 
             mov eax, [ebp - 20]             ; offset from ebp
 
-            ; find strlen to get edi to     the end of the str in buffer
+            ; find strlen to get edi to the end of the str in buffer
             push dword [ebp + eax]          ; arg
             call strlen                     ; str len in eax
 
@@ -1286,7 +1286,7 @@ sprintf:
 
             mov edi, ebp
             sub edi, 33                     ; temp buffer for digits (reverse)
-            std
+            std                             ; set direction flag since the digits are written in reverse order
             .print_decimal_loop:
                 xor edx, edx
                 div ecx
@@ -1295,7 +1295,7 @@ sprintf:
                 mov eax, edx                ; remainder
                 add eax, 48                 ; ascii value of integer
 
-                stosb                       ; save the digits
+                stosb
 
                 mov eax, [ebp - 32]         ; restore quotient
                 
@@ -1303,20 +1303,21 @@ sprintf:
                 cmp eax, 0
                 jne .print_decimal_loop
 
-            .print_decimal_loop_end:
-            mov edi, [ebp - 52]             ; temp restore esi
+            mov edi, [ebp - 52]             ; temp restore edi
 
-            cld
+            cld                             ; clear direction flag
 
             mov esi, ebp
             sub esi, 32                     ; temp buffer for digits (reverse)
             sub esi, ebx
+
             .final_copy_loop:
                 movsb
+
                 dec ebx
                 jnz .final_copy_loop
 
-            mov esi, [ebp - 48]
+            mov esi, [ebp - 48]             ; temp restore esi
             inc dword [ebp - 16]            ; placeholder count
             jmp .loop
 

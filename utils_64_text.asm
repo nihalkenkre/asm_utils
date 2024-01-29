@@ -124,8 +124,8 @@ strcpy:
     mov rdi, [rbp + 24]             ; dst
 
 .loop:
-    lodsb                           ; using lod and sto to load value to al so it can be checked for 0
-    stosb
+    lodsb                           ; not using movsb so the byte can be checked if it is 0, and esi advances before check, so check is incorrect
+    stosb                           ; storing before checking because we need the zero at the end of the string to be copied too
 
     cmp al, 0                       ; end of string ?
     je .loop_end                    ; yes
@@ -164,8 +164,8 @@ wstrcpy:
     mov rdi, [rbp + 24]             ; dst
 
 .loop:
-    lodsw                           ; using lod and sto to load value to ax so it can be checked for 0
-    stosw
+    lodsw                           ; not using movsb so the byte can be checked if it is 0, and esi advances before check, so check is incorrect
+    stosw                           ; storing before checking because we need the zero at the end of the string to be copied too
 
     cmp ax, 0                       ; end of string ?
     je .loop_end                    ; yes
@@ -1310,6 +1310,189 @@ find_target_process_id:
 
 .shutdown:
     mov rax, [rbp - 8]                      ; return value
+
+    leave
+    ret
+
+; arg0: ptr to buffer               rcx
+; arg1: ptr to str                  rdx
+; arg2 ...: args to sprintf         r8, r9, rbp + 48 ..... 
+sprintf:
+    push rbp
+    mov rbp, rsp
+
+
+    mov [rbp + 16], rcx                     ; ptr to buffer
+    mov [rbp + 24], rdx                     ; ptr to str
+    mov [rbp + 32], r8                      ; arg1 to buffer
+    mov [rbp + 40], r9                      ; arg2 to buffer
+
+    ; rbp - 8 = return value
+    ; rbp - 16 = esi
+    ; rbp - 24 = edi
+    ; rbp - 32 = place holder count
+    ; rbp - 40 = offset from rbp
+    ; rbp - 48 = number of bits to shift right
+    ; rbp - 56 = rbx
+    ; rbp - 64 = quotient from print decimal division
+    ; rbp - 88 = temp buffer for decimal conversion (20 digit) + 5 byte padding
+    ; rbp - 96 = 8 byte padding
+    sub rsp, 96                             ; allocate local variable space
+
+    mov qword [rbp - 8], 0                  ; return value
+    mov [rbp - 16], rsi                     ; save rsi
+    mov [rbp - 24], rdi                     ; save rdi
+    mov qword [rbp - 32], 0                 ; place holder count
+    mov qword [rbp - 56], rbx               ; save rbx
+
+    mov rsi, [rbp + 24]                     ; ptr to str
+    mov rdi, [rbp + 16]                     ; ptr to buffer
+
+.loop:
+    lodsb
+
+    cmp al, '%'
+    je .process_placeholder
+
+    stosb
+
+    cmp al, 0
+    je .end_of_loop
+
+    jmp .loop
+    .process_placeholder:
+        lodsb
+
+        cmp al, 's'
+        je .print_string
+
+        cmp al, 'd'
+        je .print_decimal
+
+        cmp al, 'x'
+        je .print_hex
+
+        stosb                               ; not a placeholder, must be a string, copy it
+
+        jmp .loop
+
+        .print_string:
+        ; get the arguement for this placeholder, offset from rbp + 32
+            mov rax, 8
+            mul qword [rbp - 32]            ; place holder count
+
+            add rax, 32                     ; offset into args list to get the arg for this place holder
+
+            mov [rbp - 40], rax             ; offset from rbp
+
+            ; copy arg string to the buffer
+            mov rcx, [rbp + rax]
+            mov rdx, rdi
+            call strcpy
+
+            mov rax, [rbp - 40]             ; offset from rbp
+
+            ; find strlen to get rdi to the end of the str in buffer
+            mov rcx, [rbp + rax]            ; arg
+            call strlen
+
+            add rdi, rax
+
+            inc qword [rbp - 32]            ; place holder count
+            jmp .loop
+
+        .print_decimal:
+            mov rax, 8
+            mul qword [rbp - 32]            ; place holder count
+
+            add rax, 32                     ; offset into args list to get the arg for this placeholder
+
+            mov [rbp - 40], rax             ; offet from rbp
+            mov rax, [rbp + rax]            ; arg
+
+            mov rcx, 10                     ; divisor
+            xor rbx, rbx                    ; number of digits in the decimal
+
+            mov r10, rsi                    ; temp save rsi
+            mov r11, rdi                    ; temp save rdi
+
+            mov rdi, rbp
+            sub rdi, 65                     ; temp buffer for digits (reverse)
+            std                             ; set direction flag since the digits are written in reverse order
+
+            .print_decimal_loop:
+                xor edx, edx
+                div rcx
+
+                mov [rbp - 64], rax         ; save quotient
+                mov rax, rdx                ; remainder
+                add rax, 48                 ; ascii value of integer
+
+                stosb
+
+                mov rax, [rbp - 64]         ; restore quotient
+
+                inc rbx
+                cmp rax, 0
+                jne .print_decimal_loop
+
+            mov rdi, r11                    ; temp restore rdi
+
+            cld                             ; clear direction flag
+
+            mov rsi, rbp
+            sub rsi, 64                     ; temp buffer for digits (reverse)
+            sub rsi, rbx
+
+            .final_copy_loop:
+                movsb
+
+                dec rbx
+                jnz .final_copy_loop
+
+            mov rsi, r10                    ; temp restore rsi
+
+            inc qword [rbp - 32]            ; place holder count
+            jmp .loop
+
+        .print_hex:
+            mov rax, 8
+            mul qword [rbp - 32]            ; place holder count
+            add rax, 32                     ; offset into args list to get the arg for this place holder
+
+            mov [rbp - 40], rax             ; offset from rbp
+
+            mov qword [rbp - 48], 64        ; start with 64 bits to shift right
+            mov rdx, hex_digits
+
+            .print_hex_loop:
+                sub qword [rbp - 48], 4     ; nbits to shift right
+                mov rcx, [rbp - 48]         ; nbits to shift right
+
+                mov rax, [rbp - 40]         ; offset form rbp
+                mov rax, [rbp + rax]        ; arg
+
+                shr rax, cl                 ; shift right and 'and', so just the nibble is left in al
+                and al, 0x0f
+
+                movzx ebx, byte al
+                mov al, [rdx + rbx]         ; the corresponding 'letter' in al
+
+                stosb
+
+                cmp qword [rbp - 48], 0     ; nbits to shift right
+                jne .print_hex_loop
+
+            inc qword [rbp - 32]            ; place holder count
+            jmp .loop
+
+.end_of_loop:
+
+.shutdown:
+    mov rbx, [rbp - 56]                     ; restore rbx
+    mov rdi, [rbp - 24]                     ; restore rdi
+    mov rsi, [rbp - 16]                     ; restore rsi
+    mov rax, [rbp - 8]                      ; restore rax
 
     leave
     ret

@@ -24,8 +24,10 @@ main:
     mov rbp, rsp
 
     ; rbp - 8 = kernel handle
-    sub rsp, 8                          ; allocate local variable space
-    sub rsp, 32                         ; allocate shadow space
+    ; rbp - 520 = 512 byte sprintf buffer
+    ; rbp - 528 = 8 byte padding
+    sub rsp, 528                                    ; allocate local variable space
+    sub rsp, 32                                     ; allocate shadow space
 
     mov rcx, src
     mov rdx, dst
@@ -74,21 +76,34 @@ main:
     mov r9, xor_key.len
     call my_xor
 
+    sub rsp, 16                                     ; 2 args
+    mov rcx, rbp
+    sub rcx, 520
+    mov rdx, sprintf_str
+    mov r8, veracrypt_xor
+    mov r9, src
+    mov dword [rsp + 32], -20
+    mov rax, 20
+    mov [rsp + 40], rax
+    call sprintf
+    add rsp, 16                                     ; 2 args
+
     call get_kernel_module_handle
 
-    mov [rbp - 8], eax                            ; kernel handle
+    mov [rbp - 8], eax                              ; kernel handle
 
-    mov rcx, [rbp - 8]                            ; kernel handle
+    mov rcx, [rbp - 8]                              ; kernel handle
     call populate_kernel_function_ptrs_by_name
 
-    mov rcx, [rbp - 8]                            ; kernel handle
+    mov rcx, rbp
+    sub rcx, 520
+    call [output_debug_string_a]
+
+    mov rcx, [rbp - 8]                              ; kernel handle
     mov rdx, sleep_xor
     call get_proc_address_by_get_proc_addr
 
-    mov rcx, ntdll
-    call [load_library_a]
-
-    mov rcx, [rbp - 8]                            ; kernel handle
+    mov rcx, [rbp - 8]                              ; kernel handle
     mov rdx, InterlockedPushListSList_str
     mov r8, InterlockedPushListSList_str.len
     call get_proc_address_by_name
@@ -98,6 +113,9 @@ main:
     call find_target_process_id
 
 .shutdown:
+
+    xor rax, rax
+
     leave
     ret
 
@@ -106,7 +124,7 @@ STD_HANDLE_ENUM equ -11
 INVALID_HANDLE_VALUE equ -1
 
 src: db 'test_string', 0
-.len equ $ - src
+.len equ $ - src - 1
 
 wsrc: dw __utf16__('tESt_sTrIng'), 0
 .len equ ($ - wsrc) / 2
@@ -123,8 +141,8 @@ InterlockedPushListSList_str: db 'InterlockedPushListSList', 0
 veracrypt_xor: db 0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x55, 0x48, 0x55, 0x0
 .len equ $ - veracrypt_xor - 1
 
-ntdll: db 'ntdll.dll', 0
-.len equ $ - ntdll
+sprintf_str: db 'This is %s, %s, veracrypt name length: %x, test_string name length: %x.', 0
+.len equ $ - sprintf_str
 
 %include '..\utils_64_data.asm'
 
