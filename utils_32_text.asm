@@ -173,7 +173,6 @@ wstrcpy:
 
 ; arg0: str         [ebp + 8]
 ; arg1: wstr        [ebp + 12]
-; arg2: str len     [ebp + 16]
 ;
 ; ret: 1 if equal   eax
 strcmpAW:
@@ -191,21 +190,21 @@ strcmpAW:
 
     mov esi, [ebp + 8]          ; str
     mov edi, [ebp + 12]         ; wstr
-    mov ecx, [ebp + 16]         ; str len
 
 .loop:
     movzx eax, byte [esi]
     movzx edx, byte [edi]
 
     cmp al, dl
-
     jne .loop_end_not_equal
+
+    cmp al, 0                   ; end of string ?
+    je .loop_end_equal
 
     inc esi
     add edi, 2
 
-    dec ecx
-    jnz .loop
+    jmp .loop
 
     .loop_end_equal:
         mov dword [ebp - 4], 1
@@ -225,7 +224,8 @@ strcmpAW:
 
 ; arg0: str         [ebp + 8]
 ; arg1: wstr        [ebp + 12]
-; arg2: str len     [ebp + 16]
+;
+; ret: 1 if equal   eax
 strcmpiAW:
     push ebp
     mov ebp, esp
@@ -241,7 +241,6 @@ strcmpiAW:
 
     mov esi, [ebp + 8]          ; str
     mov edi, [ebp + 12]         ; wstr
-    mov ecx, [ebp + 16]         ; str len
 
 .loop:
     movzx eax, byte [esi]
@@ -253,12 +252,13 @@ strcmpiAW:
     jl .al_less_than_dl
 
 .continue_loop:
+    cmp al, 0                   ; end of string ?
+    je .loop_end_equal
+
     inc esi
     add edi, 2
-    dec ecx
-    jnz .loop
 
-    jmp .loop_end_equal
+    jmp .loop
 
     .al_more_than_dl:
         add dl, 32
@@ -292,7 +292,6 @@ strcmpiAW:
 
 ; arg0: str1        [ebp + 8]
 ; arg1: str2        [ebp + 12]
-; arg2: str1 len    [ebp + 16]
 ;
 ; ret: 1 if equal   eax
 strcmpAA:
@@ -304,16 +303,26 @@ strcmpAA:
     ; ebp - 12 = rdi
     sub esp, 12                 ; allocate local variable space 
 
-    mov dword [ebp - 4], 0            ; return value
+    mov dword [ebp - 4], 0      ; return value
     mov [ebp - 8], esi          ; save esi
     mov [ebp - 12], edi         ; save edi
 
     mov esi, [ebp + 8]          ; str1
     mov edi, [ebp + 12]         ; str2
-    mov ecx, [ebp + 16]         ; str1 len
 
-    repe cmpsb
-    jecxz .equal
+    ; cmp successive bytes, and check the esi end of string
+    ; if the strings are equal it would be end of both strings
+    ; if the strings are unequal the cmpsb would fail
+
+.loop:
+    cmpsb
+    jne .not_equal
+
+    mov al, [esi]                       ; cannot use lodsb as it incr esi
+    cmp al, 0
+    je .equal
+
+    jmp .loop
 
     .not_equal:
         mov dword [ebp - 4], 0        ; return value
@@ -333,7 +342,8 @@ strcmpAA:
 
 ; arg0: str         [ebp + 8]
 ; arg1: wstr        [ebp + 12]
-; arg2: str len     [ebp + 16]
+;
+; ret: 1 if equal   eax
 strcmpiAA:
     push ebp
     mov ebp, esp
@@ -349,7 +359,6 @@ strcmpiAA:
 
     mov esi, [ebp + 8]          ; str
     mov edi, [ebp + 12]         ; wstr
-    mov ecx, [ebp + 16]         ; str len
 
 .loop:
     movzx eax, byte [esi]
@@ -361,12 +370,13 @@ strcmpiAA:
     jl .al_less_than_dl
 
 .continue_loop:
+    cmp al, 0                   ; end of string ?
+    je .loop_end_equal
+
     inc esi
     inc edi
-    dec ecx
-    jnz .loop
 
-    jmp .loop_end_equal
+    jmp .loop
 
     .al_more_than_dl:
         add dl, 32
