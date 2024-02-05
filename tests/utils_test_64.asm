@@ -5,8 +5,6 @@ global main
 
 %include '..\utils_64_text.asm'
 
-extern WideCharToMultiByte
-
 func:
     push rbx
     push rbp
@@ -53,20 +51,21 @@ main:
     mov rdx, wdst
     call wstrcpy
 
-    mov rcx, src
+    mov rcx, str1
     mov rdx, wsrc
-    mov r8, src.len
-    call strcmpiAW
+    call strcmpAW
 
     mov rcx, str1
     mov rdx, str2
-    mov r8, str1.len
     call strcmpAA
 
     mov rcx, str1
     mov rdx, str2
-    mov r8, str1.len
     call strcmpiAA
+
+    mov rcx, src
+    mov rdx, wsrc
+    call strcmpiAW
 
     mov rcx, str2
     mov rdx, 'r'
@@ -91,7 +90,7 @@ main:
 
     call get_kernel_module_handle
 
-    mov [rbp - 8], eax                              ; kernel handle
+    mov [rbp - 8], rax                              ; kernel handle
 
     mov rcx, [rbp - 8]                              ; kernel handle
     call populate_kernel_function_ptrs_by_name
@@ -123,11 +122,9 @@ main:
 
     mov rcx, [rbp - 8]                              ; kernel handle
     mov rdx, InterlockedPushListSList_str
-    mov r8, InterlockedPushListSList_str.len
     call get_proc_address_by_name
 
     mov rcx, veracrypt_xor
-    mov rdx, veracrypt_xor.len
     call find_target_process_id
 
 .shutdown:
@@ -144,10 +141,10 @@ INVALID_HANDLE_VALUE equ -1
 src: db 'test_string', 0
 .len equ $ - src - 1
 
-wsrc: dw __utf16__('tESt_sTrIng'), 0
+wsrc: dw __utf16__('teST_stringii'), 0
 .len equ ($ - wsrc) / 2
 
-str1: db 'test_string', 0
+str1: db 'Test_string', 0
 .len equ $ - str1 - 1
 
 str2: db 'test_string', 0

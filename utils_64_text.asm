@@ -183,8 +183,7 @@ wstrcpy:
 
 ; arg0: str             rcx
 ; arg1: wstr            rdx
-; arg2: str len         r8
-
+;
 ; ret: 1 if equal       rax
 strcmpAW:
     push rbp
@@ -192,7 +191,6 @@ strcmpAW:
 
     mov [rbp + 16], rcx             ; str
     mov [rbp + 24], rdx             ; wstr
-    mov [rbp + 32], r8              ; str len
 
     ; rbp - 8 = return value
     ; rbp - 16 = rsi
@@ -206,39 +204,40 @@ strcmpAW:
 
     mov rsi, [rbp + 16]             ; str
     mov rdi, [rbp + 24]             ; wstr
-    mov rcx, [rbp + 32]             ; str len
 
-    .loop:
-        movzx eax, byte [rsi]
-        movzx edx, byte [rdi]
+.loop:
+    movzx eax, byte [rsi]
+    movzx edx, byte [rdi]
 
-        cmp al, dl
+    cmp al, dl
+    jne .loop_end_not_equal
 
-        jne .loop_end_not_equal
+    cmp al, 0                       ; end of string ?
+    je .loop_end_equal
 
-        inc qword rsi
-        add rdi, 2
-        dec qword rcx
-        jnz .loop
+    inc qword rsi
+    add rdi, 2
+    jmp .loop
 
     .loop_end_equal:
-        mov rax, 1                  ; return value
+        mov qword [rbp - 8], 1      ; return value
+
         jmp .shutdown
 
     .loop_end_not_equal:
-        xor rax, rax                ; return value
+        mov qword [rbp - 8], 0      ; return value
         jmp .shutdown
 
 .shutdown:
-        mov rdi, [rbp - 24]         ; restore rdi
-        mov rsi, [rbp - 16]         ; restore rsi
+    mov rdi, [rbp - 24]         ; restore rdi
+    mov rsi, [rbp - 16]         ; restore rsi
+    mov rax, [rbp - 8]           ; return value
 
-        leave
-        ret
+    leave
+    ret
 
 ; arg0: str             rcx
 ; arg1: wstr            rdx
-; arg2: str len         r8
 
 ; ret: 1 if equal       rax
 strcmpiAW:
@@ -247,7 +246,6 @@ strcmpiAW:
 
     mov [rbp + 16], rcx             ; str
     mov [rbp + 24], rdx             ; wstr
-    mov [rbp + 32], r8              ; str len
 
     ; rbp - 8 = return value
     ; rbp - 16 = rsi
@@ -261,65 +259,54 @@ strcmpiAW:
 
     mov rsi, [rbp + 16]             ; str
     mov rdi, [rbp + 24]             ; wstr
-    mov rcx, [rbp + 32]             ; str len
 
-    .loop:
-        movzx eax, byte [rsi]
-        movzx edx, byte [rdi]
+.loop:
+    movzx eax, byte [rsi]
+    movzx edx, byte [rdi]
 
+    cmp al, dl
+
+    jg .al_more_than_dl
+    jl .al_less_than_dl
+
+.continue_loop:
+    cmp al, 0                       ; end of string ?
+    je .loop_end_equal
+
+    inc rsi
+    add rdi, 2
+
+    jmp .loop
+
+    .al_more_than_dl:
+        add dl, 32
         cmp al, dl
 
-        jg .al_more_than_dl
-        jl .al_less_than_dl
+        jne .loop_end_not_equal
+        jmp .continue_loop
 
-        inc qword rsi
-        add rdi, 2
-        dec qword rcx
-        jnz .loop
+    .al_less_than_dl:
+        add al, 32
+        cmp al, dl
 
-    .loop_end_equal:
+        jne .loop_end_not_equal
+        jmp .continue_loop
 
-        mov rdi, [rbp - 24]         ; restore rdi
-        mov rsi, [rbp - 16]         ; restore rsi
-        mov rax, 1                  ; return value
+.loop_end_not_equal:
+    mov qword [rbp - 8], 0          ; return value
+    jmp .shutdown
 
-        leave
-        ret
+.loop_end_equal:
+    mov qword [rbp - 8], 1          ; return value
+    jmp .shutdown
 
-        .al_more_than_dl:
-            add dl, 32
-            cmp al, dl
+.shutdown:
+    mov rdi, [rbp - 24]             ; restore rdi
+    mov rsi, [rbp - 16]             ; restore rsi
+    mov rax, [rbp - 8]              ; return value
 
-            jne .loop_end_not_equal
-
-            inc qword rsi
-            add rdi, 2
-            dec qword rcx
-            jnz .loop
-            
-            jmp .loop_end_equal
-        
-        .al_less_than_dl:
-            add al, 32
-            cmp al, dl
-
-            jne .loop_end_not_equal
-
-            inc qword rsi
-            add rdi, 2
-            dec qword rcx
-            jnz .loop
-
-            jmp .loop_end_equal
-
-    .loop_end_not_equal:
-
-        mov rdi, [rbp - 24]         ; restore rdi
-        mov rsi, [rbp - 16]         ; restore rsi
-        xor rax, rax                ; return value
-
-        leave
-        ret
+    leave
+    ret
 
 
 ; arg0: str1                    rcx
@@ -347,32 +334,37 @@ strcmpAA:
 
     mov rsi, [rbp + 16]             ; str1
     mov rdi, [rbp + 24]             ; str2
-    mov rcx, [rbp + 32]             ; str1 len
 
-    repe cmpsb
-    jrcxz .equal
+.loop:
+    cmpsb
+    jne .not_equal
+
+    mov al, [rsi]                   ; cannot use lodsb since it incr esi
+    cmp al, 0                       ; end of string ?
+    je .equal
+
+    jmp .loop
 
     .not_equal:
-        mov qword [rbp - 8], 0
+        mov qword [rbp - 8], 0      ; return value
         jmp .shutdown
 
     .equal:
-        mov qword [rbp - 8], 1
+        mov qword [rbp - 8], 1      ; return value
         jmp .shutdown
 
 .shutdown:
-        mov rdi, [rbp - 24]         ; restore rdi
-        mov rsi, [rbp - 16]         ; restore rsi
+    mov rdi, [rbp - 24]         ; restore rdi
+    mov rsi, [rbp - 16]         ; restore rsi
 
-        mov rax, [rbp - 8]          ; return value
+    mov rax, [rbp - 8]          ; return value
 
-        leave
-        ret
+    leave
+    ret
 
 ; arg0: str                     rcx
 ; arg1: wstr                    rdx
-; arg2: str len                 r8
-
+;
 ; ret: 1 if equal               rax
 strcmpiAA:
     push rbp
@@ -380,7 +372,6 @@ strcmpiAA:
 
     mov [rbp + 16], rcx             ; str
     mov [rbp + 24], rdx             ; wstr
-    mov [rbp + 32], r8              ; str len
 
     ; rbp - 8 = return value
     ; rbp - 16 = rsi
@@ -394,62 +385,53 @@ strcmpiAA:
 
     mov rsi, [rbp + 16]             ; str
     mov rdi, [rbp + 24]             ; wstr
-    mov rcx, [rbp + 32]             ; str len
 
-    .loop:
-        movzx eax, byte [rsi]
-        movzx edx, byte [rdi]
+.loop:
+    movzx eax, byte [rsi]
+    movzx edx, byte [rdi]
 
+    cmp al, dl
+    jg .al_more_than_dl
+    jl .al_less_than_dl
+
+.continue_loop:
+    cmp al, 0                       ; end of string ?
+    je .loop_end_equal
+
+    inc rsi
+    inc rdi
+
+    jnz .loop
+
+    .al_more_than_dl:
+        add dl, 32
         cmp al, dl
-        jg .al_more_than_dl
-        jl .al_less_than_dl
-        
-        inc rsi
-        inc rdi
-        dec rcx
-        jnz .loop
 
-    .loop_end_equal:
+        jne .loop_end_not_equal
+        jmp .continue_loop
 
-        mov rdi, [rbp - 24]         ; restore rdi
-        mov rsi, [rbp - 16]         ; restore rsi
-        mov rax, 1                  ; return value
+    .al_less_than_dl:
+        add al, 32
+        cmp al, dl
 
-        leave
-        ret
+        jne .loop_end_not_equal
+        jmp .continue_loop
 
-        .al_more_than_dl:
-            add dl, 32
-            cmp al, dl
+.loop_end_not_equal:
+    mov qword [rbp - 8], 0          ; return value
+    jmp .shutdown
 
-            jne .loop_end_not_equal
+.loop_end_equal:
+    mov qword [rbp - 8], 1          ; return value
+    jmp .shutdown
 
-            inc rsi
-            inc rdi
-            dec rcx
-            jnz .loop
+.shutdown:
+    mov rdi, [rbp - 24]             ; restore rdi
+    mov rsi, [rbp - 16]             ; restore rsi
+    mov rax, [rbp - 8]              ; return value
 
-            jmp .loop_end_equal
-
-        .al_less_than_dl:
-            add al, 32
-            cmp al, dl
-
-            jne .loop_end_not_equal
-         
-            inc rsi
-            inc rdi
-            dec rcx
-            jnz .loop
-            jmp .loop_end_equal
-
-    .loop_end_not_equal:
-        mov rdi, [rbp - 24]         ; restore rdi
-        mov rsi, [rbp - 16]         ; restore rsi
-        xor rax, rax                ; return value
-
-        leave
-        ret
+    leave
+    ret
 
 
 ; arg0: str                     rcx
@@ -728,7 +710,6 @@ get_kernel_module_handle:
 
         mov rcx, kernel32_xor
         mov rdx, [rax]
-        mov r8, kernel32_xor.len
         call strcmpiAW
 
         cmp rax, 1                      ; strings match
@@ -758,7 +739,6 @@ get_kernel_module_handle:
 
 ; arg0: base addr           rcx
 ; arg1: proc name           rdx
-; arg2: proc name len       r8
 ;
 ; return: proc addr         rax
 get_proc_address_by_name:
@@ -767,7 +747,6 @@ get_proc_address_by_name:
 
     mov [rbp + 16], rcx                     ; base addr
     mov [rbp + 24], rdx                     ; proc name
-    mov [rbp + 32], r8                      ; proc name len
 
     ; rbp - 8 = return value
     ; rbp - 16 = nt headers
@@ -849,7 +828,6 @@ get_proc_address_by_name:
 
     mov rcx, [rbp + 24]                     ; proc name
     mov rdx, rbx
-    mov r8, [rbp + 32]                      ; proc name len
     call strcmpiAA
 
     cmp rax, 1                              ; are strings equal
@@ -1283,7 +1261,6 @@ populate_kernel_function_ptrs_by_name:
     ret
 
 ; arg0: proc name       rcx
-; arg1: proc name len   rdx
 ;
 ; return: proc id       rax
 find_target_process_id:
@@ -1291,7 +1268,6 @@ find_target_process_id:
     mov rbp, rsp
 
     mov [rbp + 16], rcx                     ; proc name
-    mov [rbp + 24], rdx                     ; proc name len
 
     ; [rbp - 8] = return value
     ; [rbp - 16] = snapshot handle
@@ -1331,7 +1307,6 @@ find_target_process_id:
         mov rdx, rbp
         sub rdx, 304
         add rdx, 44
-        mov r8, [rbp + 24]
         call strcmpiAA
 
         cmp rax, 1                          ; are strings equal
