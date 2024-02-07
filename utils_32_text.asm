@@ -1274,6 +1274,7 @@ sprintf:
     je .end_of_loop
 
     jmp .loop
+
     .process_placeholder:
         lodsb
 
@@ -1321,7 +1322,34 @@ sprintf:
             add eax, 16                     ; offset into args list to get the arg for this placeholder
 
             mov [ebp - 20], eax             ; offset from ebp
-            mov eax, [ebp + eax]            ; arg
+
+            lodsb
+
+            cmp al, 'b'
+            je .print_decimal_byte
+
+            cmp al, 'w'
+            je .print_decimal_word
+
+            cmp al, 'd'
+            je .print_decimal_dword
+
+            jmp .loop
+
+            .print_decimal_byte:
+                mov eax, [ebp - 20]         ; offset from ebp
+                movzx eax, byte [ebp + eax] ; arg
+                jmp .continue_from_decimal_data_size_check
+            .print_decimal_word:
+                mov eax, [ebp - 20]         ; offset from ebp
+                movzx eax, word [ebp + eax] ; arg
+                jmp .continue_from_decimal_data_size_check
+            .print_decimal_dword:
+                mov eax, [ebp - 20]         ; offset from ebp
+                mov eax, [ebp + eax]  ; arg
+                jmp .continue_from_decimal_data_size_check
+
+            .continue_from_decimal_data_size_check:
 
             mov ecx, 10                     ; divisor
             xor ebx, ebx                    ; number of digits in the decimal
@@ -1332,6 +1360,7 @@ sprintf:
             mov edi, ebp
             sub edi, 33                     ; temp buffer for digits (reverse)
             std                             ; set direction flag since the digits are written in reverse order
+
             .print_decimal_loop:
                 xor edx, edx
                 div ecx
@@ -1373,15 +1402,60 @@ sprintf:
 
             mov [ebp - 20], eax             ; offset from ebp
 
-            mov dword [ebp - 24], 32        ; start with 32 bits to shift right
+            lodsb
+
+            cmp al, 'b'
+            je .print_hex_byte
+
+            cmp al, 'w'
+            je .print_hex_word
+
+            cmp al, 'd'
+            je .print_hex_dword
+
+            jmp .loop
+
+            .print_hex_byte:
+                mov dword [ebp - 24], 8        ; start with 8 bits to shift right
+                jmp .continue_from_hex_data_size_check
+            .print_hex_word:
+                mov dword [ebp - 24], 16       ; start with 16 bits to shift right
+                jmp .continue_from_hex_data_size_check
+            .print_hex_dword:
+                mov dword [ebp - 24], 32       ; start with 32 bits to shift right
+                jmp .continue_from_hex_data_size_check
+
+            .continue_from_hex_data_size_check:
+
             mov edx, hex_digits
 
             .print_hex_loop:
+                mov eax, [ebp - 20]         ; offset from ebp
+
+                cmp dword [ebp - 24], 8     ; nBits to shift right
+                je .copy_byte
+
+                cmp dword [ebp - 24], 16    ; nBits to shift right
+                je .copy_word
+
+                cmp dword [ebp - 25], 32    ; nBits to shift right
+                je .copy_dword
+
+                mov eax, [ebp - 20]             ; offset from ebp
+                .copy_byte:
+                    movzx eax, byte [ebp + eax]        ; arg
+                    jmp .continue_from_copy
+                .copy_word:
+                    movzx eax, word [ebp + eax]        ; arg
+                    jmp .continue_from_copy
+                .copy_dword:
+                    mov eax, [ebp + eax]        ; arg
+                    jmp .continue_from_copy
+
+                .continue_from_copy:
+
                 sub dword [ebp - 24], 4     ; nbits to shift right
                 mov ecx, [ebp - 24]         ; nbits to shift right
-
-                mov eax, [ebp - 20]         ; offset from ebp
-                mov eax, [ebp + eax]        ; arg
 
                 shr eax, cl                 ; shift right and 'and', so just the nibble is left in al
                 and al, 0x0f

@@ -142,7 +142,7 @@ InterlockedPushListSList_str: db 'InterlockedPushListSList', 0
 veracrypt_xor: db 0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x55, 0x48, 0x55, 0x0
 .len equ $ - veracrypt_xor - 1
 
-sprintf_str: db 'This is %s, %s, veracrypt name length: %d, test_string name length: %x.', 0
+sprintf_str: db 'This is %s, %s, veracrypt name length: %db, test_string name length: %db.', 0
 .len equ $ - sprintf_str
 
 %include '..\utils_32_data.asm'
