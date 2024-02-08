@@ -1330,18 +1330,20 @@ sprintf:
             .print_decimal_byte:
                 mov eax, [ebp - 20]                         ; offset from ebp
                 movzx eax, byte [ebp + eax]                 ; arg
+                mov dword [ebp - 56], 1                     ; arg size
                 jmp .continue_from_decimal_data_size_check
             .print_decimal_word:
                 mov eax, [ebp - 20]                         ; offset from ebp
                 movzx eax, word [ebp + eax]                 ; arg
+                mov dword [ebp - 56], 2                     ; arg size
                 jmp .continue_from_decimal_data_size_check
             .print_decimal_dword:
                 mov eax, [ebp - 20]                         ; offset from ebp
                 mov eax, [ebp + eax]                        ; arg
+                mov dword [ebp - 56], 4                     ; arg size
                 jmp .continue_from_decimal_data_size_check
 
             .continue_from_decimal_data_size_check:
-            mov dword [ebp - 56], 4                         ; arg size
 
             mov ecx, 10                                     ; divisor
             xor ebx, ebx                                    ; number of digits in the decimal
@@ -1385,13 +1387,11 @@ sprintf:
 
             mov esi, [ebp - 48]                             ; temp restore esi
             inc dword [ebp - 16]                            ; placeholder count
-            
-            mov eax, [ebp - 56]                             ; arg size
-            add dword [ebp - 20], eax                       ; offset from ebp
-
+            add dword [ebp - 20], 4                         ; offset from ebp
             jmp .loop
 
         .print_hex:
+        ; int3
             lodsb
 
             cmp al, 'b'
@@ -1407,27 +1407,29 @@ sprintf:
 
             .print_hex_byte:
                 mov dword [ebp - 24], 8                     ; start with 8 bits to shift right
+                mov dword [ebp - 56], 1                     ; arg size
                 jmp .continue_from_hex_data_size_check
             .print_hex_word:
                 mov dword [ebp - 24], 16                    ; start with 16 bits to shift right
+                mov dword [ebp - 56], 2                     ; arg size
                 jmp .continue_from_hex_data_size_check
             .print_hex_dword:
                 mov dword [ebp - 24], 32                    ; start with 32 bits to shift right
+                mov dword [ebp - 56], 4                     ; arg size
                 jmp .continue_from_hex_data_size_check
 
             .continue_from_hex_data_size_check:
 
-            mov dword [ebp - 56], 4                         ; arg size
             mov edx, hex_digits
 
             .print_hex_loop:
-                cmp dword [ebp - 24], 8                     ; nBits to shift right
+                cmp dword [ebp - 56], 1                     ; nBits to shift right
                 je .copy_byte
 
-                cmp dword [ebp - 24], 16                    ; nBits to shift right
+                cmp dword [ebp - 56], 2                     ; nBits to shift right
                 je .copy_word
 
-                cmp dword [ebp - 24], 32                    ; nBits to shift right
+                cmp dword [ebp - 56], 4                     ; nBits to shift right
                 je .copy_dword
 
                 .copy_byte:
@@ -1462,10 +1464,7 @@ sprintf:
                     jne .print_hex_loop
 
             inc dword [ebp - 16]                            ; placeholder count
-
-            mov eax, [ebp - 56]                             ; arg size
-            add dword [ebp - 20], eax                       ; offset from ebp
-
+            add dword [ebp - 20], 4                         ; offset from ebp
             jmp .loop
 
 .end_of_loop:
