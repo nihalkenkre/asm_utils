@@ -1251,13 +1251,16 @@ sprintf:
     ; ebp - 44 = temp buffer for decimal conversion (10 digits) + 2 byte padding
     ; ebp - 48 = temp save esi for decimal conversion
     ; ebp - 52 = temp save edi for decimal conversion
-    sub esp, 52                             ; allocate local variable space
+    ; ebp - 56 = arg size (db, xb = 1, dw, xw = 2, dd, xd = 4), currently passing 4 for all to keep OutputDebugStringA from crashing !?!?
+    sub esp, 56                             ; allocate local variable space
 
     mov dword [ebp - 4], 0                  ; return value
     mov [ebp - 8], esi                      ; save esi
     mov [ebp - 12], edi                     ; save edi
     mov dword [ebp - 16], 0                 ; place holder count
     mov [ebp - 28], ebx                     ; save ebx
+
+    mov dword [ebp - 20], 16                ; initial offset from ebp
 
     mov esi, [ebp + 12]                     ; ptr to str
     mov edi, [ebp + 8]                      ; ptr to buffer
@@ -1292,37 +1295,25 @@ sprintf:
         jmp .loop
 
         .print_string:
-            ; get the argument for this placeholder, offset from ebp + 16
-            mov eax, 4
-            mul dword [ebp - 16]            ; placeholder count
-
-            add eax, 16                     ; offset into args list to get the arg for this placeholder
-
-            mov [ebp - 20], eax             ; offset from ebp
-
             ; copy arg string to the buffer
-            push edi
-            push dword [ebp + eax]
-            call strcpy
-
             mov eax, [ebp - 20]             ; offset from ebp
 
+            push edi
+            push dword [ebp + eax]          ; arg
+            call strcpy
+
             ; find strlen to get edi to the end of the str in buffer
+            mov eax, [ebp - 20]             ; offset from ebp
             push dword [ebp + eax]          ; arg
             call strlen                     ; str len in eax
 
             add edi, eax
 
+            add dword [ebp - 20], 4         ; ptr to str is dword arg
             inc dword [ebp - 16]            ; placeholder count
             jmp .loop
 
         .print_decimal:
-            mov eax, 4
-            mul dword [ebp - 16]            ; placeholder count
-            add eax, 16                     ; offset into args list to get the arg for this placeholder
-
-            mov [ebp - 20], eax             ; offset from ebp
-
             lodsb
 
             cmp al, 'b'
@@ -1337,52 +1328,53 @@ sprintf:
             jmp .loop
 
             .print_decimal_byte:
-                mov eax, [ebp - 20]         ; offset from ebp
-                movzx eax, byte [ebp + eax] ; arg
+                mov eax, [ebp - 20]                         ; offset from ebp
+                movzx eax, byte [ebp + eax]                 ; arg
                 jmp .continue_from_decimal_data_size_check
             .print_decimal_word:
-                mov eax, [ebp - 20]         ; offset from ebp
-                movzx eax, word [ebp + eax] ; arg
+                mov eax, [ebp - 20]                         ; offset from ebp
+                movzx eax, word [ebp + eax]                 ; arg
                 jmp .continue_from_decimal_data_size_check
             .print_decimal_dword:
-                mov eax, [ebp - 20]         ; offset from ebp
-                mov eax, [ebp + eax]  ; arg
+                mov eax, [ebp - 20]                         ; offset from ebp
+                mov eax, [ebp + eax]                        ; arg
                 jmp .continue_from_decimal_data_size_check
 
             .continue_from_decimal_data_size_check:
+            mov dword [ebp - 56], 4                         ; arg size
 
-            mov ecx, 10                     ; divisor
-            xor ebx, ebx                    ; number of digits in the decimal
+            mov ecx, 10                                     ; divisor
+            xor ebx, ebx                                    ; number of digits in the decimal
 
-            mov [ebp - 48], esi             ; temp save esi
-            mov [ebp - 52], edi             ; temp save edi
+            mov [ebp - 48], esi                             ; temp save esi
+            mov [ebp - 52], edi                             ; temp save edi
 
             mov edi, ebp
-            sub edi, 33                     ; temp buffer for digits (reverse)
-            std                             ; set direction flag since the digits are written in reverse order
+            sub edi, 33                                     ; temp buffer for digits (reverse)
+            std                                             ; set direction flag since the digits are written in reverse order
 
             .print_decimal_loop:
                 xor edx, edx
                 div ecx
 
-                mov [ebp - 32], eax         ; save quotient
-                mov eax, edx                ; remainder
-                add eax, 48                 ; ascii value of integer
+                mov [ebp - 32], eax                         ; save quotient
+                mov eax, edx                                ; remainder
+                add eax, 48                                 ; ascii value of integer
 
                 stosb
 
-                mov eax, [ebp - 32]         ; restore quotient
+                mov eax, [ebp - 32]                         ; restore quotient
                 
                 inc ebx
                 cmp eax, 0
                 jne .print_decimal_loop
 
-            mov edi, [ebp - 52]             ; temp restore edi
+            mov edi, [ebp - 52]                             ; temp restore edi
 
-            cld                             ; clear direction flag
+            cld                                             ; clear direction flag
 
             mov esi, ebp
-            sub esi, 32                     ; temp buffer for digits (reverse)
+            sub esi, 32                                     ; temp buffer for digits (reverse)
             sub esi, ebx
 
             .final_copy_loop:
@@ -1391,17 +1383,15 @@ sprintf:
                 dec ebx
                 jnz .final_copy_loop
 
-            mov esi, [ebp - 48]             ; temp restore esi
-            inc dword [ebp - 16]            ; placeholder count
+            mov esi, [ebp - 48]                             ; temp restore esi
+            inc dword [ebp - 16]                            ; placeholder count
+            
+            mov eax, [ebp - 56]                             ; arg size
+            add dword [ebp - 20], eax                       ; offset from ebp
+
             jmp .loop
 
         .print_hex:
-            mov eax, 4
-            mul dword [ebp - 16]            ; placeholder count
-            add eax, 16                     ; offset into args list to get the arg for this placeholder
-
-            mov [ebp - 20], eax             ; offset from ebp
-
             lodsb
 
             cmp al, 'b'
@@ -1416,72 +1406,79 @@ sprintf:
             jmp .loop
 
             .print_hex_byte:
-                mov dword [ebp - 24], 8        ; start with 8 bits to shift right
+                mov dword [ebp - 24], 8                     ; start with 8 bits to shift right
                 jmp .continue_from_hex_data_size_check
             .print_hex_word:
-                mov dword [ebp - 24], 16       ; start with 16 bits to shift right
+                mov dword [ebp - 24], 16                    ; start with 16 bits to shift right
                 jmp .continue_from_hex_data_size_check
             .print_hex_dword:
-                mov dword [ebp - 24], 32       ; start with 32 bits to shift right
+                mov dword [ebp - 24], 32                    ; start with 32 bits to shift right
                 jmp .continue_from_hex_data_size_check
 
             .continue_from_hex_data_size_check:
 
+            mov dword [ebp - 56], 4                         ; arg size
             mov edx, hex_digits
 
             .print_hex_loop:
-                mov eax, [ebp - 20]         ; offset from ebp
-
-                cmp dword [ebp - 24], 8     ; nBits to shift right
+                cmp dword [ebp - 24], 8                     ; nBits to shift right
                 je .copy_byte
 
-                cmp dword [ebp - 24], 16    ; nBits to shift right
+                cmp dword [ebp - 24], 16                    ; nBits to shift right
                 je .copy_word
 
-                cmp dword [ebp - 25], 32    ; nBits to shift right
+                cmp dword [ebp - 24], 32                    ; nBits to shift right
                 je .copy_dword
 
-                mov eax, [ebp - 20]             ; offset from ebp
                 .copy_byte:
-                    movzx eax, byte [ebp + eax]        ; arg
+                    mov eax, [ebp - 20]                     ; offset from ebp
+                    movzx eax, byte [ebp + eax]             ; arg
                     jmp .continue_from_copy
+
                 .copy_word:
-                    movzx eax, word [ebp + eax]        ; arg
+                    mov eax, [ebp - 20]                     ; offset from ebp
+                    movzx eax, word [ebp + eax]             ; arg
                     jmp .continue_from_copy
+
                 .copy_dword:
-                    mov eax, [ebp + eax]        ; arg
+                    mov eax, [ebp - 20]                     ; offset from ebp
+                    mov eax, [ebp + eax]                    ; arg
                     jmp .continue_from_copy
 
                 .continue_from_copy:
 
-                sub dword [ebp - 24], 4     ; nbits to shift right
-                mov ecx, [ebp - 24]         ; nbits to shift right
+                    sub dword [ebp - 24], 4                 ; nbits to shift right
+                    mov ecx, [ebp - 24]                     ; nbits to shift right
 
-                shr eax, cl                 ; shift right and 'and', so just the nibble is left in al
-                and al, 0x0f
+                    shr eax, cl                             ; shift right and 'and', so just the nibble is left in al
+                    and al, 0x0f
 
-                movzx ebx, byte al
-                mov al, [edx + ebx]         ; the corresponding 'letter' in al
+                    movzx ebx, byte al
+                    mov al, [edx + ebx]                     ; the corresponding 'letter' in al
 
-                stosb
+                    stosb
 
-                cmp dword [ebp - 24], 0     ; nbits to shift right
-                jne .print_hex_loop
+                    cmp dword [ebp - 24], 0                 ; nbits to shift right
+                    jne .print_hex_loop
 
-            inc dword [ebp - 16]            ; placeholder count
+            inc dword [ebp - 16]                            ; placeholder count
+
+            mov eax, [ebp - 56]                             ; arg size
+            add dword [ebp - 20], eax                       ; offset from ebp
+
             jmp .loop
 
 .end_of_loop:
 
 .shutdown:
 
-    mov ebx, [ebp - 28]                     ; restore ebx
-    mov edi, [ebp - 12]                     ; restore edi
-    mov esi, [ebp - 8]                      ; restore esi
-    mov eax, [ebp - 4]                      ; return value
+    mov ebx, [ebp - 28]                 ; restore ebx
+    mov edi, [ebp - 12]                 ; restore edi
+    mov esi, [ebp - 8]                  ; restore esi
+    mov eax, [ebp - 4]                  ; return value
 
     leave
-    ret                                     ; no stack clearing here, since this is a special variadic function, callee cannot know how many args have been passed, cleared by caller
+    ret                                 ; no stack clearing here, since this is a special variadic function, callee cannot know how many args have been passed, cleared by caller
 
 ; arg0: handle              ebp + 8
 ; arg0: ptr to string       ebp + 12
