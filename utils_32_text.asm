@@ -1251,7 +1251,7 @@ sprintf:
     ; ebp - 44 = temp buffer for decimal conversion (10 digits) + 2 byte padding
     ; ebp - 48 = temp save esi for decimal conversion
     ; ebp - 52 = temp save edi for decimal conversion
-    ; ebp - 56 = arg size (db, xb = 1, dw, xw = 2, dd, xd = 4), currently passing 4 for all to keep OutputDebugStringA from crashing !?!?
+    ; ebp - 56 = arg size (db, xb = 1, dw, xw = 2, dd, xd = 4), used to point to the next arg by adding to offset from ebp, currently passing 4 for all to keep OutputDebugStringA from crashing !?!?
     sub esp, 56                             ; allocate local variable space
 
     mov dword [ebp - 4], 0                  ; return value
@@ -1260,7 +1260,7 @@ sprintf:
     mov dword [ebp - 16], 0                 ; place holder count
     mov [ebp - 28], ebx                     ; save ebx
 
-    mov dword [ebp - 20], 16                ; initial offset from ebp
+    mov dword [ebp - 20], 16                ; offset from ebp
 
     mov esi, [ebp + 12]                     ; ptr to str
     mov edi, [ebp + 8]                      ; ptr to buffer
@@ -1297,7 +1297,6 @@ sprintf:
         .print_string:
             ; copy arg string to the buffer
             mov eax, [ebp - 20]             ; offset from ebp
-
             push edi
             push dword [ebp + eax]          ; arg
             call strcpy
@@ -1309,7 +1308,7 @@ sprintf:
 
             add edi, eax
 
-            add dword [ebp - 20], 4         ; ptr to str is dword arg
+            add dword [ebp - 20], 4         ; offset from ebp
             inc dword [ebp - 16]            ; placeholder count
             jmp .loop
 
@@ -1391,7 +1390,6 @@ sprintf:
             jmp .loop
 
         .print_hex:
-        ; int3
             lodsb
 
             cmp al, 'b'
@@ -1423,13 +1421,13 @@ sprintf:
             mov edx, hex_digits
 
             .print_hex_loop:
-                cmp dword [ebp - 56], 1                     ; nBits to shift right
+                cmp dword [ebp - 56], 1                     ; arg size
                 je .copy_byte
 
-                cmp dword [ebp - 56], 2                     ; nBits to shift right
+                cmp dword [ebp - 56], 2                     ; arg size
                 je .copy_word
 
-                cmp dword [ebp - 56], 4                     ; nBits to shift right
+                cmp dword [ebp - 56], 4                     ; arg size
                 je .copy_dword
 
                 .copy_byte:

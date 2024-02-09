@@ -83,8 +83,8 @@ main:
     mov rdx, sprintf_str
     mov r8, veracrypt_xor
     mov r9, src
-    mov dword [rsp + 32], veracrypt_xor.len
-    mov dword [rsp + 40], src.len
+    mov qword [rsp + 32], veracrypt_xor.len
+    mov qword [rsp + 40], src.len
     call sprintf
     add rsp, 16                                     ; 2 args
 
@@ -156,7 +156,7 @@ InterlockedPushListSList_str: db 'InterlockedPushListSList', 0
 veracrypt_xor: db 0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x55, 0x48, 0x55, 0x0
 .len equ $ - veracrypt_xor - 1
 
-sprintf_str: db 'This is %s, %s, veracrypt name length: %d, test_string name length: %x.', 0
+sprintf_str: db 'This is %s, %s, veracrypt name length: %db, test_string name length: %xb.', 0
 .len equ $ - sprintf_str
 
 %include '..\utils_64_data.asm'
