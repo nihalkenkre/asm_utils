@@ -15,6 +15,8 @@ FILE_SHARE_READ equ 0x1
 OPEN_ALWAYS equ 0x4
 FILE_ATTRIBUTE_NORMAL equ 0x80
 
+INVALID_HANDLE_VALUE equ -1
+
 xor_key: db '00000', 0
 .len equ $ - xor_key - 1
 

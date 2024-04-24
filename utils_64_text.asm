@@ -238,7 +238,7 @@ strcmpAW:
 
 ; arg0: str             rcx
 ; arg1: wstr            rdx
-
+;
 ; ret: 1 if equal       rax
 strcmpiAW:
     push rbp
@@ -311,7 +311,6 @@ strcmpiAW:
 
 ; arg0: str1                    rcx
 ; arg1: str2                    rdx
-; arg2: str1 len                r8
 ;
 ; ret: 1 if equal               rax
 strcmpAA:
@@ -320,7 +319,6 @@ strcmpAA:
 
     mov [rbp + 16], rcx             ; str1
     mov [rbp + 24], rdx             ; str2
-    mov [rbp + 32], r8              ; str1 len
 
     ; rbp - 8 = return value
     ; rbp - 16 = rsi
@@ -1561,7 +1559,7 @@ sprintf:
 
                 .copy_dword:
                     mov rax, [rbp - 40]         ; offset from rbp
-                    mov eax, [rbp + rax]      ; arg
+                    mov eax, [rbp + rax]        ; arg
                     jmp .continue_from_copy
 
                 .copy_qword:
