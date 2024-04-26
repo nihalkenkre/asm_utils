@@ -105,7 +105,7 @@ main:
 
     push sleep_xor
     push dword [ebp - 4]                            ; kernel handle
-    call get_proc_address_by_get_proc_addr
+    call [get_proc_addr]
 
     push InterlockedPushListSList_str
     push dword [ebp - 4]                            ; kernel handle

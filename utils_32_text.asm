@@ -843,34 +843,6 @@ get_proc_address_by_name:
     ret 8
 
 ; arg0: base addr               [ebp + 8]
-; arg1: proc name               [ebp + 12]
-;
-; return: proc addr             eax
-get_proc_address_by_get_proc_addr:
-    push ebp
-    mov ebp, esp
-
-    ; ebp - 4 = return value
-    sub esp, 4                      ; allocate local variable space
-
-    mov dword [ebp - 4], 0          ; return value
-    
-    cmp dword [get_proc_addr], 0    ; is GetProcAddress available ?
-    je .shutdown
-
-    push dword [ebp + 12]           ; proc name
-    push dword [ebp + 8]            ; base addr
-    call [get_proc_addr]            ; proc addr
-
-    mov [ebp - 4], eax              ; return value
-
-.shutdown:
-    mov eax, [ebp - 4]              ; return value
-
-    leave
-    ret 8
-
-; arg0: base addr               [ebp + 8]
 ; arg1: xor str                 [ebp + 12]
 ; arg2: xor str len             [ebp + 16]
 ; arg3: is get proc addr        [ebp + 20]
@@ -903,10 +875,9 @@ unxor_and_get_proc_addr:
         jmp .shutdown
 
 .not_get_proc_addr:
-    push dword [ebp + 16]                       ; xor str len
     push dword [ebp + 12]                       ; xor str
     push dword [ebp + 8]                        ; base addr
-    call get_proc_address_by_get_proc_addr
+    call [get_proc_addr]
 
     mov [ebp - 4], eax                          ; return value
 

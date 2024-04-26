@@ -940,35 +940,6 @@ get_proc_address_by_name:
     leave
     ret
 
-
-; arg0: base addr               rcx
-; arg1: proc name               rdx
-;
-; return: proc addr             rax
-get_proc_address_by_get_proc_addr:
-    push rbp
-    mov rbp, rsp
-
-    mov [rbp + 16], rcx                     ; base addr
-    mov [rbp + 24], rdx                     ; proc name
-
-    ; rbp - 8 = return value
-    ; rbp - 16 = 8 bytes padding
-    sub rsp, 16                             ; allocate local variable space
-    sub rsp, 32                             ; allocate shadow space
-
-    mov rcx, [rbp + 16]                     ; base addr
-    mov rdx, [rbp + 24]                     ; proc name
-    call [get_proc_addr]                    ; proc addr
-
-    mov [rbp - 8], rax                      ; return value
-
-.shutdown:
-    mov rax, [rbp - 8]                      ; return value
-
-    leave
-    ret
-
 ; arg0: base addr               rcx
 ; arg1: xor str                 rdx
 ; arg2: xor str len             r8
@@ -1009,8 +980,7 @@ unxor_and_get_proc_addr:
 .not_get_proc_addr:
     mov rcx, [rbp + 16]                         ; base addr
     mov rdx, [rbp + 24]                         ; xor str
-    mov r8, [rbp + 32]                          ; xor str len
-    call get_proc_address_by_get_proc_addr
+    call [get_proc_addr]
 
     mov [rbp - 8], rax                          ; proc addr
 

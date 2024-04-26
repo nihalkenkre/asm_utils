@@ -118,7 +118,7 @@ main:
 
     mov rcx, [rbp - 8]                              ; kernel handle
     mov rdx, sleep_xor
-    call get_proc_address_by_get_proc_addr
+    call [get_proc_addr]
 
     mov rcx, [rbp - 8]                              ; kernel handle
     mov rdx, InterlockedPushListSList_str
