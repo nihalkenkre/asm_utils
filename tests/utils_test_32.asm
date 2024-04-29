@@ -91,14 +91,6 @@ main:
 
     mov eax, ebp
     sub eax, 516
-    push eax
-    call strlen
-
-    mov [ebp - 524], eax                            ; buffer strlen
-
-    push dword [ebp - 524]                          ; buffer strlen
-    mov eax, ebp
-    sub eax, 516
     push eax                                        ; buffer
     push dword [ebp - 520]                          ; std handle
     call print_string

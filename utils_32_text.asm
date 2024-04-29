@@ -1450,7 +1450,6 @@ sprintf:
 
 ; arg0: handle              ebp + 8
 ; arg0: ptr to string       ebp + 12
-; arg1: str len             ebp + 16
 print_string:
     push ebp
     mov ebp, esp
@@ -1460,9 +1459,12 @@ print_string:
 
     mov dword [ebp - 4], 0          ; return value
 
+    push dword [ebp + 12]           ; ptr to str
+    call strlen
+
     push 0
     push 0
-    push dword [ebp + 16]           ; str len
+    push eax                        ; str len
     push dword [ebp + 12]           ; ptr to str
     push dword [ebp + 8]            ; std handle
     call [write_file]

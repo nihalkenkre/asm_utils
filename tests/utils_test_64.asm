@@ -103,17 +103,12 @@ main:
     call [get_std_handle]
 
     mov [rbp - 528], rax                            ; std handle
-    
-    mov rcx, rbp
-    sub rcx, 520
-    call strlen
 
     mov [rbp - 536], rax                            ; buffer strlen
 
     mov rcx, [rbp - 528]                            ; std handle
     mov rdx, rbp
     sub rdx, 520                                    ; buffer
-    mov r8, [rbp - 536]                             ; buffer strlen
     call print_string
 
     mov rcx, [rbp - 8]                              ; kernel handle

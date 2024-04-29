@@ -1570,14 +1570,12 @@ sprintf:
 
 ; arg0: handle              rcx
 ; arg0: ptr to str          rdx
-; arg1: str len             r8
 print_string:
     push rbp
     mov rbp, rsp
 
     mov [rbp + 16], rcx                     ; handle
     mov [rbp + 24], rdx                     ; ptr to str
-    mov [rbp + 32], r8                      ; str len
 
     ; rbp - 8 = return value
     ; rbp - 16 = 8 bytes padding
@@ -1586,9 +1584,13 @@ print_string:
 
     mov qword [rbp - 8], 0                  ; return value
 
+    ; calculate str len
+    mov rcx, [rbp + 24]                     ; ptr to str
+    call strlen
+
     mov rcx, [rbp + 16]                     ; std handle
     mov rdx, [rbp + 24]                     ; ptr to str
-    mov r8, [rbp + 32]                      ; str len
+    mov r8, rax                             ; str len
     xor r9, r9
     mov qword [rsp + 32], 0
     call [write_file]
