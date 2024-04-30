@@ -11,6 +11,10 @@ open_file: dq ?
 get_file_size: dq ?
 create_file_a: dq ?
 read_file: dq ?
+set_file_pointer: dq ?
+find_first_stream_w: dq ?
+find_next_stream_w: dq ?
+find_close: dq ?
 write_file: dq ?
 virtual_alloc: dq ?
 virtual_alloc_ex: dq ?
