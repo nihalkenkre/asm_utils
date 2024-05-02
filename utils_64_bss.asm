@@ -5,11 +5,13 @@ load_library_a: dq ?
 get_module_handle_a: dq ?
 get_current_process: dq ?
 get_volume_information_a: dq ?
+get_volume_information_w: dq ?
 get_std_handle: dq ?
 open_process: dq ?
 open_file: dq ?
 get_file_size: dq ?
 create_file_a: dq ?
+create_file_w: dq ?
 read_file: dq ?
 set_file_pointer: dq ?
 find_first_stream_w: dq ?
