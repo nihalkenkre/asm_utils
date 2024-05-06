@@ -1020,7 +1020,7 @@ unxor_and_get_proc_addr:
 .not_get_proc_addr:
     mov rcx, [rbp + 16]                         ; base addr
     mov rdx, [rbp + 24]                         ; xor str
-    call [get_proc_addr]
+    call [get_proc_address]
 
     mov [rbp - 8], rax                          ; proc addr
 
@@ -1040,12 +1040,12 @@ populate_kernel_function_ptrs_by_name:
     sub rsp, 32                                 ; allocate shadow space
 
     mov rcx, [rbp + 16]
-    mov rdx, get_proc_addr_xor
-    mov r8, get_proc_addr_xor.len
+    mov rdx, get_proc_address_xor
+    mov r8, get_proc_address_xor.len
     mov r9, 1
     call unxor_and_get_proc_addr                ; proc addr
 
-    mov [get_proc_addr], rax                    ; GetProcAddress addr
+    mov [get_proc_address], rax                    ; GetProcAddress addr
 
     mov rcx, [rbp + 16]
     mov rdx, get_last_error_xor
