@@ -181,6 +181,46 @@ wstrcpy:
     leave
     ret
 
+; arg0: src        rcx
+; arg1: dst        rdx
+wstrcpya:
+    push rbp
+    mov rbp, rsp
+
+    mov [rbp + 16], rcx             ; src
+    mov [rbp + 24], rdx             ; dst
+
+    ; rbp - 8 = return value
+    ; rbp - 16 = save rsi
+    ; rbp - 24 = save rdi
+    ; rbp - 32 = 8 bytes padding
+    sub rsp, 32                     ; allocate local variable space
+
+    mov qword [rbp - 8], 0          ; return value
+    mov [rbp - 16], rsi             ; save rsi
+    mov [rbp - 24], rdi             ; save rdi
+
+    mov rsi, [rbp + 16]             ; src
+    mov rdi, [rbp + 24]             ; dst
+
+.loop:
+    lodsw                           ; not using movsb so the byte can be checked if it is 0, and esi advances before check, so check is incorrect
+    stosb                           ; storing before checking because we need the zero at the end of the string to be copied too
+
+    cmp ax, 0                       ; end of string ?
+    je .loop_end                    ; yes
+
+    jmp .loop
+
+.loop_end:
+    
+    mov rdi, [rbp - 24]             ; restore rdi
+    mov rsi, [rbp - 16]             ; restore rsi
+    mov rax, [rbp - 8]              ; return value
+
+    leave
+    ret
+
 ; arg0: str             rcx
 ; arg1: wstr            rdx
 ;
@@ -1356,10 +1396,12 @@ find_target_process_id:
 ; arg0: ptr to buffer               rcx
 ; arg1: ptr to str                  rdx
 ; arg2 ...: args to sprintf         r8, r9, rbp + 48 ..... 
+; format specifiers: %(s/d/x)(b/w/d/q)
+; s/d/x: string, decimal, hex
+; b/w/d/q: byte, word, dword, qword value
 sprintf:
     push rbp
     mov rbp, rsp
-
 
     mov [rbp + 16], rcx                     ; ptr to buffer
     mov [rbp + 24], rdx                     ; ptr to str
@@ -1419,23 +1461,50 @@ sprintf:
         jmp .loop
 
         .print_string:
-            ; copy arg string to the buffer
+            lodsb
+            
+            cmp al, 'b'
+            je .print_single_byte_char
 
-            mov rax, [rbp - 40]             ; offset from rbp
-            mov rcx, [rbp + rax]
-            mov rdx, rdi
-            call strcpy
+            cmp al, 'w'
+            je .print_double_byte_char
 
-            ; find strlen to get rdi to the end of the str in buffer
-            mov rax, [rbp - 40]             ; offset from rbp
-            mov rcx, [rbp + rax]            ; arg
-            call strlen
-
-            add rdi, rax
-
-            add qword [rbp - 40], 8         ; offset from rbp
-            inc qword [rbp - 32]            ; place holder count
             jmp .loop
+
+            .print_single_byte_char:
+                ; copy arg string to the buffer
+                mov rax, [rbp - 40]             ; offset from rbp
+                mov rcx, [rbp + rax]
+                mov rdx, rdi
+                call strcpy
+
+                ; find strlen to get rdi to the end of the str in buffer
+                mov rax, [rbp - 40]             ; offset from rbp
+                mov rcx, [rbp + rax]            ; arg
+                call strlen
+
+                add rdi, rax
+
+                add qword [rbp - 40], 8         ; offset from rbp
+                inc qword [rbp - 32]            ; place holder count
+                jmp .loop
+
+            .print_double_byte_char:
+                ; copy arg string to the buffer
+                mov rax, [rbp - 40]             ; offset from rbp
+                mov rcx, [rbp + rax]
+                mov rdx, rdi
+                call wstrcpya
+
+                ; find strlen to get rdi to the end of the str in buffer
+                mov rcx, rdx
+                call strlen
+
+                add rdi, rax
+
+                add qword [rbp - 40], 8         ; offset from rbp
+                inc qword [rbp - 32]            ; place holder count
+                jmp .loop
 
         .print_decimal:
             lodsb

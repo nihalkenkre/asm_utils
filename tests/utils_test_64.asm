@@ -51,6 +51,10 @@ main:
     mov rdx, wdst
     call wstrcpy
 
+    mov rcx, wsrc
+    mov rdx, dst
+    call wstrcpya
+
     mov rcx, str1
     mov rdx, wsrc
     call strcmpAW
@@ -85,6 +89,16 @@ main:
     mov r9, src
     mov qword [rsp + 32], veracrypt_xor.len
     mov qword [rsp + 40], src.len
+    call sprintf
+    add rsp, 16                                     ; 2 args
+
+    sub rsp, 16                                     ; 2 args
+    mov rcx, rbp
+    sub rcx, 520
+    mov rdx, sprintf_wstr
+    mov r8, wsrc
+    mov r9, wsrc.len
+    mov qword [rsp + 32], wsrc.len
     call sprintf
     add rsp, 16                                     ; 2 args
 
@@ -137,7 +151,7 @@ src: db 'test_string', 0
 .len equ $ - src - 1
 
 wsrc: dw __utf16__('teST_stringii'), 0
-.len equ ($ - wsrc) / 2
+.len equ ($ - wsrc) / 2 - 1
 
 str1: db 'Test_string', 0
 .len equ $ - str1 - 1
@@ -153,6 +167,9 @@ veracrypt_xor: db 0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x
 
 sprintf_str: db 'This is %s, %s, veracrypt name length: %db, test_string name length: %xb.', 0
 .len equ $ - sprintf_str
+
+sprintf_wstr: db 'This is %sw, with length %db, %xb', 0xa, 0
+.len equ $ - sprintf_wstr
 
 %include '..\utils_64_data.asm'
 
