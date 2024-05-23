@@ -136,6 +136,10 @@ main:
     mov rcx, veracrypt_xor
     call find_target_process_id
 
+    mov rcx, find_in_str
+    mov rdx, find_str
+    call str_contains
+
 .shutdown:
 
     xor rax, rax
@@ -170,6 +174,13 @@ sprintf_str: db 'This is %s, %s, veracrypt name length: %db, test_string name le
 
 sprintf_wstr: db 'This is %sw, with length %db, %xb', 0xa, 0
 .len equ $ - sprintf_wstr
+
+find_in_str: db 'The quick brown fox jumped over the lazy dog', 0
+.len equ $ - find_in_str - 1
+
+find_str: db 'The quick BrOwN', 0
+.len equ $ - find_str - 1
+
 
 %include '..\utils_64_data.asm'
 

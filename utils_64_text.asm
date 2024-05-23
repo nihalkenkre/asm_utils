@@ -529,6 +529,81 @@ strchr:
     leave
     ret
 
+; arg0: str to find in              rcx
+; arg1: str to find                 rdx
+;
+; ret: ptr if found, 0 otherwise    rax
+str_contains:
+        push rbp
+        mov rbp, rsp
+
+        mov [rbp + 16], rcx             ; find in str
+        mov [rbp + 24], rdx             ; find str
+
+        ; rbp - 8 = return value
+        ; rbp - 16 = find in str len
+        ; rbp - 24 = find str len
+        ; rbp - 32 = find in char loop counter
+        sub rsp, 32                     ; allocate local variable space, padding
+        sub rsp, 32                     ; allocate shadow space, padding
+
+        ; init values
+        mov qword [rbp - 8], 0          ; return value
+        mov qword [rbp - 32], 0         ; find in char loop counter
+        
+        ; find find in str len
+        mov rcx, [rbp + 16]             ; find in str
+        call strlen
+
+        mov [rbp - 16], rax             ; find in str len
+
+        ; find find str len
+        mov rcx, [rbp + 24]             ; find str
+        call strlen
+
+        mov [rbp - 24], rax             ; find str len
+
+        ; compare each char of the find in str to the find str
+        ; and if match is found then see if subsequent chars
+        ; match the find str
+
+        mov rsi, [rbp + 16]             ; find in str
+        mov rdi, [rbp + 24]             ; find str
+
+    .loop:
+        cmp byte [rsi], 0               ; end of find in str?
+        je .shutdown
+
+        mov rcx, [rbp - 24]             ; find str len
+        .inner_loop:
+            cmpsb
+
+            jne .inner_loop_done
+
+            dec rcx
+            jecxz .find_str_found
+
+            jmp .inner_loop
+
+        .inner_loop_done:
+
+        inc qword [rbp - 32]            ; find in char loop counter
+        mov rdi, [rbp + 24]             ; find str
+        mov rsi, [rbp + 16]             ; find in str
+        add rsi, [rbp - 32]             ; find in char loop counter
+
+        jmp .loop
+
+    .find_str_found:
+        mov qword [rbp - 8], 1                ; return value
+        
+    .shutdown:
+        mov rax, [rbp - 8]              ; return value
+
+        leave
+        ret
+        
+
 ; arg0: str1            rcx
 ; arg1: str2            rdx
 strappend:
