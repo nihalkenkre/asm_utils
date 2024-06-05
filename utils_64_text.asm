@@ -581,7 +581,7 @@ str_contains:
             jne .inner_loop_done
 
             dec rcx
-            jecxz .find_str_found
+            jz .find_str_found
 
             jmp .inner_loop
 
@@ -595,7 +595,7 @@ str_contains:
         jmp .loop
 
     .find_str_found:
-        mov qword [rbp - 8], 1                ; return value
+        mov qword [rbp - 8], 1          ; return value
         
     .shutdown:
         mov rax, [rbp - 8]              ; return value
@@ -603,6 +603,80 @@ str_contains:
         leave
         ret
         
+
+; arg0: wstr to find in             rcx
+; arg1: wstr to find                rdx
+;
+; ret: 1 if contains 0 otherwise    rax
+wstr_contains:
+        push rbp
+        mov rbp, rsp
+
+        mov [rbp + 16], rcx             ; find in wstr
+        mov [rbp + 24], rdx             ; find wstr
+
+        ; rbp - 8 = return value
+        ; rbp - 16 = find in wstr len
+        ; rbp - 24 = find wstr len
+        ; rbp - 32 = find in char loop counter
+        sub rsp, 32                     ; local variable space, padding
+        sub rsp, 32                     ; shadow space, padding
+
+        ; init values
+        mov qword [rbp - 8], 0          ; return value
+        mov qword [rbp - 32], 0         ; find in char loop counter
+
+        ; find find in wstr len
+        mov rcx, [rbp + 16]             ; find in wstr
+        call wstrlen
+
+        mov [rbp - 16], rax             ; find in wstr len
+
+        ; find find wstr len
+        mov rcx, [rbp + 24]             ; find wstr
+        call wstrlen
+
+        mov [rbp - 24], rax             ; find wstr len
+
+        ; compare each char of the find in wstr to the find wstr
+        ; and if match is found then see if subsequent chars
+        ; match the find wstr
+
+        mov rsi, [rbp + 16]             ; find in wstr
+        mov rdi, [rbp + 24]             ; find wstr
+
+    .loop:
+        cmp byte [rsi], 0               ; end of find in wstr?
+        je .shutdown
+
+        mov rcx, [rbp - 24]             ; find wstr len
+        .inner_loop:
+            cmpsw
+
+            jne .inner_loop_done
+
+            dec rcx
+            jz .find_str_found
+
+            jmp .inner_loop
+
+        .inner_loop_done:
+
+        inc qword [rbp - 32]            ; find in char loop counter
+        mov rdi, [rbp + 24]             ; find wstr
+        mov rsi, [rbp + 16]             ; find in wstr
+        add rsi, [rbp - 32]             ; find in char loop counter
+
+        jmp .loop
+
+    .find_str_found:
+        mov qword [rbp - 8], 1          ; return value
+        
+    .shutdown:
+        mov rax, [rbp - 8]              ; return value
+
+        leave
+        ret
 
 ; arg0: str1            rcx
 ; arg1: str2            rdx
