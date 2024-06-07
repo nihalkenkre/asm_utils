@@ -662,7 +662,7 @@ wstr_contains:
 
         .inner_loop_done:
 
-        inc qword [rbp - 32]            ; find in char loop counter
+        add qword [rbp - 32], 2         ; find in char loop counter
         mov rdi, [rbp + 24]             ; find wstr
         mov rsi, [rbp + 16]             ; find in wstr
         add rsi, [rbp - 32]             ; find in char loop counter
