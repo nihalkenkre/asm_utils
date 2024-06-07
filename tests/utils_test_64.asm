@@ -185,10 +185,10 @@ find_in_str: db 'The quick brown fox jumped over the lazy dog', 0
 find_str: db 'The quick BrOwN', 0
 .len equ $ - find_str - 1
 
-find_in_wstr: dw __utf16__('The quick brown fox jumped over the lazy dog'), 0
+find_in_wstr: dw __utf16__('DirectoryFileKeyProcessThreadToken'), 0
 .len equ ($ - find_in_wstr) / 2 - 1
 
-find_wstr: dw __utf16__('dog ran'), 0
+find_wstr: dw __utf16__('Key'), 0
 .len equ ($ - find_wstr) / 2 - 1
 
 %include '..\utils_64_data.asm'
