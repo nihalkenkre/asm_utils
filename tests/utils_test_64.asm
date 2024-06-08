@@ -125,6 +125,10 @@ main:
     sub rdx, 520                                    ; buffer
     call print_string
 
+    mov rcx, rbp
+    sub rcx, 520
+    call print_console
+
     mov rcx, [rbp - 8]                              ; kernel handle
     mov rdx, sleep_xor
     call [get_proc_address]
@@ -173,7 +177,7 @@ InterlockedPushListSList_str: db 'InterlockedPushListSList', 0
 veracrypt_xor: db 0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x55, 0x48, 0x55, 0x0
 .len equ $ - veracrypt_xor - 1
 
-sprintf_str: db 'This is %s, %s, veracrypt name length: %db, test_string name length: %xb.', 0
+sprintf_str: db 'This is %sb, %sb, veracrypt name length: %dd, test_string name length: %xd.', 0
 .len equ $ - sprintf_str
 
 sprintf_wstr: db 'This is %sw, with length %db, %xb', 0xa, 0

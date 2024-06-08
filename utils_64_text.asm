@@ -1875,3 +1875,44 @@ print_string:
 
     leave
     ret
+
+; arg0: ptr to str      rcx
+print_console:
+    push rbp
+    mov rbp, rsp
+
+    mov [rbp + 16], rcx                     ; ptr to str
+
+    ; rbp - 8 = return value
+    ; rbp - 16 = 8 bytes padding
+    ; rbp - 24 = strlen
+    ; rbp - 32 = std handle
+    sub rsp, 32                             ; allocate local variable space
+    sub rsp, 48                             ; allocate shadow space, extra args, padding bytes
+
+    mov qword [rbp - 8], 0                  ; return value
+
+    ; calculate str len
+    mov rcx, [rbp + 16]                     ; ptr to str
+    call strlen
+    mov [rbp - 24], rax                     ; strlen
+
+    mov rcx, STD_HANDLE_ENUM
+    call [get_std_handle]
+
+    mov [rbp - 32], rax                     ; std handle
+
+    mov rcx, [rbp - 32]                     ; std handle
+    mov rdx, [rbp + 16]                     ; ptr to str
+    mov r8, [rbp - 24]                      ; str len
+    xor r9, r9
+    mov qword [rsp + 32], 0
+    call [write_file]
+
+.shutdown:
+
+    mov rax, [rbp - 8]                      ; return value
+
+    leave
+    ret
+
