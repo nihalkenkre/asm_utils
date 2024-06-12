@@ -221,6 +221,47 @@ wstrcpya:
     leave
     ret
 
+; arg0: src         rcx
+; arg1: dst         rdx
+astrcpyw:
+        push rbp
+        mov rbp, rsp
+
+        mov [rbp + 16], rcx         ; src
+        mov [rbp + 24], rdx         ; dst
+
+        ; rbp - 8 = return value
+        ; rbp - 16 = save rsi
+        ; rbp - 24 = save rdi
+        ; rbp - 32 = padding byte
+        sub rsp, 32                     ; local space, padding bytes
+        mov qword [rbp - 8], 0          ; return value
+        mov [rbp - 16], rsi             ; save rsi
+        mov [rbp - 24], rdi             ; save rdi
+
+        mov rsi, [rbp + 16]             ; src
+        mov rdi, [rbp + 24]             ; dst
+
+        xor eax, eax                    ; zero out so we store axdd, after loading just al
+
+    .loop:
+        lodsb                           ; not using movsb so the byte can be checked if it is 0, and esi advances before check, so check is incorrect
+        stosw                           ; storing before checking because we need the zero at the end of the string to be copied too
+
+        cmp al, 0                       ; end of string?
+        je .loop_end                    ; yes
+
+        jmp .loop
+
+    .loop_end:
+    
+        mov rdi, [rbp - 24]             ; restore rdi
+        mov rsi, [rbp - 16]             ; restore rsi
+        mov rax, [rbp - 8]              ; return value
+
+        leave
+        ret
+
 ; arg0: str             rcx
 ; arg1: wstr            rdx
 ;

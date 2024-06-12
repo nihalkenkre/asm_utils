@@ -148,6 +148,10 @@ main:
     mov rdx, find_wstr
     call wstr_contains
 
+    mov rcx, find_in_str
+    mov rdx, wdst
+    call astrcpyw
+
 .shutdown:
 
     xor rax, rax
