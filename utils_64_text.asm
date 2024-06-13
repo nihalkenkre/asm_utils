@@ -1724,7 +1724,7 @@ sprintf:
 
                 add rdi, rax
 
-                add qword [rbp - 40], 8         ; offset from rbp
+                add qword [rbp - 40], 8         ; offset from rbp, ideally should be arg size [rbp - 96]
                 inc qword [rbp - 32]            ; place holder count
                 jmp .loop
 
@@ -1810,7 +1810,7 @@ sprintf:
 
             mov rsi, r10                    ; temp restore rsi
             inc qword [rbp - 32]            ; place holder count
-            add qword [rbp - 40], 8         ; offset from rbp
+            add qword [rbp - 40], 8         ; offset from rbp, ideally should be arg size [rbp - 96]
             jmp .loop
 
         .print_hex:
@@ -1901,7 +1901,7 @@ sprintf:
                     jne .print_hex_loop
 
             inc qword [rbp - 32]                ; place holder count
-            add qword [rbp - 40], 8             ; offset from rbp
+            add qword [rbp - 40], 8             ; offset from rbp, ideally should be arg size [rbp - 96]
             jmp .loop
 
 .end_of_loop:
