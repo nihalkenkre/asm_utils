@@ -152,6 +152,12 @@ main:
     mov rdx, wdst
     call astrcpyw
 
+    mov rcx, wdst
+    xor rdx, rdx
+    mov r8, 128
+    call memset
+
+
 .shutdown:
 
     xor rax, rax

@@ -32,6 +32,38 @@ memcpy:
     leave
     ret
 
+; arg0: mem             rcx
+; arg1: value           rdx
+; arg2: count           r8
+memset:
+        push rbp
+        mov rbp, rsp
+
+        mov [rbp + 16], rcx             ; mem
+        mov [rbp + 24], rdx             ; value
+        mov [rbp + 32], r8              ; count
+
+        ; rbp - 8 = return value
+        ; rbp - 16 = save rdi
+        sub rsp, 16
+
+        mov rdi, [rbp + 16]             ; mem
+        mov rax, [rbp + 24]             ; value
+        mov rcx, [rbp + 32]             ; count
+
+    .loop:
+        stosb
+
+        dec rcx
+        jnz .loop
+
+    .shutdown:
+        mov rax, [rbp - 8]              ; return value
+        mov rsi, [rbp - 16]             ; restore rsi
+
+        leave
+        ret
+
 
 ; arg0: str             rcx
 ;
