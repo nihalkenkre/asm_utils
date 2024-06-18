@@ -240,9 +240,7 @@ wstrcpya:
     stosb                           ; storing before checking because we need the zero at the end of the string to be copied too
 
     cmp ax, 0                       ; end of string ?
-    je .loop_end                    ; yes
-
-    jmp .loop
+    jne .loop                       ; no
 
 .loop_end:
     
@@ -274,16 +272,14 @@ astrcpyw:
         mov rsi, [rbp + 16]             ; src
         mov rdi, [rbp + 24]             ; dst
 
-        xor eax, eax                    ; zero out so we store axdd, after loading just al
+        xor eax, eax                    ; zero out so we store ax, after loading just al
 
     .loop:
         lodsb                           ; not using movsb so the byte can be checked if it is 0, and esi advances before check, so check is incorrect
         stosw                           ; storing before checking because we need the zero at the end of the string to be copied too
 
         cmp al, 0                       ; end of string?
-        je .loop_end                    ; yes
-
-        jmp .loop
+        jne .loop                       ; no
 
     .loop_end:
     
@@ -753,7 +749,7 @@ wstr_contains:
 
 ; arg0: str1            rcx
 ; arg1: str2            rdx
-strappend:
+str_append:
     push rbp
     mov rbp, rsp
 
@@ -761,42 +757,21 @@ strappend:
     mov [rbp + 24], rdx                         ; str2
 
     ; rbp - 8 = return value
-    ; rbp - 16 = rsi
-    ; rbp - 24 = rdi
-    ; rbp - 32 = 8 bytes padding
-    sub rsp, 32                                 ; allocate local variable space
+    ; rbp - 16 = str1 len
+    sub rsp, 16                                 ; allocate local variable space
 
-    mov [rbp - 16], rsi                         ; save rsi
-    mov [rbp - 24], rdi                         ; save rdi
+    mov rcx, [rbp + 16]                         ; str1
+    call strlen
 
-    mov rsi, [rbp + 16]                         ; str1
-.str1_loop:
-    lodsb
+    mov [rbp - 32], rax                         ; str1 len
 
-    cmp al, 0                                   ; end of string ?
-    jne .str1_loop
-
-    ; end of string
-    dec rsi                                     ; to point to the trailing 0
-
-    mov rdi, rsi
-    mov rsi, [rbp + 24]                         ; str2
-
-.str2_loop:
-    lodsb
-    cmp al, 0                                   ; end of string ?
-    je .str2_loop_end
-
-    stosb
-
-    jmp .str2_loop
-
-.str2_loop_end:
-    mov byte [rdi], 0                           ; append trailing 0
+    mov rcx, [rbp + 24]                         ; str2
+    mov rdx, [rbp + 16]                         ; str1
+    add rdx, [rbp - 32]                         ; str1 len; points to the end of str1
+    call strcpy
 
 .shutdown:
-    mov rdi, [rbp - 24]                         ; restore rdi
-    mov rsi, [rbp - 16]                         ; restore rsi
+    xor rax, rax
 
     leave
     ret
@@ -1020,7 +995,7 @@ get_proc_address_by_name:
     ; rbp - 328 = loaded forwarded library addr
     ; rbp - 336 = function name strlen
     ; rbp - 344 = rbx
-    ; rbp - 472 = dll name with extension
+    ; rbp - 472 = dll name with extension -> not used, dll name used as is without .dll ext
     ; ebp - 480 = 8 bytes padding
     sub rsp, 480                            ; allocate local variable space
     sub rsp, 32                             ; allocate shadow space
@@ -1149,31 +1124,11 @@ get_proc_address_by_name:
 
     mov [rbp - 320], rax                    ; forwarded function name
 
-    ; copy the dll name to another part of mem, to append the .dll to pass to the loadlibrary func
-    mov rcx, rbp
-    sub rcx, 312                            ; ptr to dll name
-    mov rdx, rbp
-    sub rdx, 472                            ; ptr to dll name + ext
-    call strcpy
-
-    ; unxor .dll string
-    mov rcx, dll_xor
-    mov rdx, dll_xor.len
-    mov r8, xor_key
-    mov r9, xor_key.len
-    call my_xor
-
-    ; append the .dll to the dll name string
-    mov rcx, rbp
-    sub rcx, 472
-    mov rdx, dll_xor
-    call strappend
-    
     cmp qword [load_library_a], 0           ; is load_library_a proc avaiable
     je .error_shutdown
     
     mov rcx, rbp
-    sub rcx, 472                            ; ptr to dll name + ext
+    sub rcx, 312                            ; ptr to dll name + ext
     call [load_library_a]                   ; library addr
 
     mov [rbp - 328], rax                    ; library addr
@@ -1719,8 +1674,9 @@ sprintf:
                 call wstrcpya
 
                 ; find strlen to get rdi to the end of the str in buffer
-                mov rcx, rdx
-                call strlen
+                mov rax, [rbp - 40]             ; offset from rbp
+                mov rcx, [rbp + rax]            ; arg
+                call wstrlen
 
                 add rdi, rax
 

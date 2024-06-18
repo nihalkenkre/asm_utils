@@ -29,6 +29,13 @@ main:
     sub rsp, 544                                    ; allocate local variable space
     sub rsp, 32                                     ; allocate shadow space
 
+    call get_kernel_module_handle
+
+    mov [rbp - 8], rax                              ; kernel handle
+
+    mov rcx, [rbp - 8]                              ; kernel handle
+    call populate_kernel_function_ptrs_by_name
+
     mov rcx, src
     mov rdx, dst
     mov r8, src.len
@@ -102,12 +109,9 @@ main:
     call sprintf
     add rsp, 16                                     ; 2 args
 
-    call get_kernel_module_handle
-
-    mov [rbp - 8], rax                              ; kernel handle
-
-    mov rcx, [rbp - 8]                              ; kernel handle
-    call populate_kernel_function_ptrs_by_name
+    mov rcx, rbp
+    sub rcx, 520
+    call print_console
 
     mov rcx, rbp
     sub rcx, 520
@@ -118,16 +122,10 @@ main:
 
     mov [rbp - 528], rax                            ; std handle
 
-    mov [rbp - 536], rax                            ; buffer strlen
-
     mov rcx, [rbp - 528]                            ; std handle
     mov rdx, rbp
     sub rdx, 520                                    ; buffer
     call print_string
-
-    mov rcx, rbp
-    sub rcx, 520
-    call print_console
 
     mov rcx, [rbp - 8]                              ; kernel handle
     mov rdx, sleep_xor
@@ -166,13 +164,15 @@ main:
     ret
 
 section .data
+%include '..\utils_64_data.asm'
+
 STD_HANDLE_ENUM equ -11
 INVALID_HANDLE_VALUE equ -1
 
 src: db 'test_string', 0
 .len equ $ - src - 1
 
-wsrc: dw __utf16__('teST_stringii'), 0
+wsrc: dw __utf16__('teST_string'), 0
 .len equ ($ - wsrc) / 2 - 1
 
 str1: db 'Test_string', 0
@@ -190,7 +190,7 @@ veracrypt_xor: db 0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x
 sprintf_str: db 'This is %sb, %sb, veracrypt name length: %dd, test_string name length: %xd.', 0
 .len equ $ - sprintf_str
 
-sprintf_wstr: db 'This is %sw, with length %db, %xb', 0xa, 0
+sprintf_wstr: db 'This is %sw, with length %db, %xb, and a lot more', 0xa, 0
 .len equ $ - sprintf_wstr
 
 find_in_str: db 'The quick brown fox jumped over the lazy dog', 0
@@ -204,8 +204,6 @@ find_in_wstr: dw __utf16__('DirectoryFileKeyProcessThreadToken'), 0
 
 find_wstr: dw __utf16__('Key'), 0
 .len equ ($ - find_wstr) / 2 - 1
-
-%include '..\utils_64_data.asm'
 
 section .bss
 dst: resb 128

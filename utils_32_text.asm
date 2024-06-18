@@ -30,6 +30,39 @@ memcpy:
     leave
     ret 12
 
+
+; arg0: mem                 [ebp + 8]
+; arg1: value               [ebp + 12]
+; arg2: count               [ebp + 16]
+memset:
+        push ebp
+        mov ebp, esp
+
+        ; ebp - 4 = return value
+        ; ebp - 8 = save rdi
+        sub esp, 8              ; local variable space
+
+        mov dword [ebp - 4], 0  ; return value
+        mov [ebp - 8], edi      ; save edi
+
+        mov edi, [ebp + 8]      ; mem
+        mov eax, [ebp + 12]     ; value
+        mov ecx, [ebp + 16]     ; count
+
+    .loop:
+        stosb
+
+        dec ecx
+        jnz .loop
+    
+    .shutdown:
+        mov eax, [ebp - 4]      ; return value
+        mov edi, [ebp - 8]      ; restore edi
+
+        leave
+        ret 12
+
+
 ; arg0: str                 [ebp + 8]
 ;
 ; ret: num chars            eax
@@ -169,6 +202,74 @@ wstrcpy:
 
     leave
     ret 8
+
+; arg0: src         [ebp + 8]
+; arg1: dst         [ebp + 12]
+wstrcpya:
+        push ebp
+        mov ebp, esp
+
+        ; ebp - 4 = return value
+        ; ebp - 8 = save rsi
+        ; ebp - 12 = save rdi
+        sub esp, 12                     ; local variable space
+
+        mov dword [ebp - 4], 0          ; return value
+        mov [ebp - 8], esi              ; save esi
+        mov [ebp - 12], edi             ; save edi
+
+        mov esi, [ebp + 8]              ; src
+        mov edi, [ebp + 12]             ; dst
+
+    .loop:
+        lodsw                           ; not using movsb so the byte can be checked if it is 0, and esi advances before check, so check is incorrect
+        stosb                           ; storing before checking because we need the zero at the end of the string to be copied too
+
+        cmp ax, 0                       ; end of string ?
+        jne .loop                       ; no
+
+    .shutdown:
+        mov edi, [ebp - 12]             ; restore edi
+        mov esi, [ebp - 8]              ; restore esi
+        mov eax, [ebp - 4]              ; return value
+
+        leave
+        ret 8
+
+; arg0: src         [ebp + 8]
+; arg1: dst         [ebp + 12]
+astrcpyw:
+        push ebp
+        mov ebp, esp
+
+        ; ebp - 4 = return value
+        ; ebp - 8 = save esi
+        ; ebp - 12 = save edi
+        sub esp, 12                     ; local variable space
+
+        mov dword [ebp - 4], 0          ; return value
+        mov [ebp - 8], esi              ; save esi
+        mov [ebp - 12], edi             ; save edi
+
+        mov esi, [ebp + 8]              ; src
+        mov edi, [ebp + 12]             ; dst
+
+        xor eax, eax
+
+    .loop:
+        lodsb                           ; not using movsb so the byte can be checked if it is 0, and esi advances before check, so check is incorrect
+        stosw                           ; storing before checking because we need the zero at the end of the string to be copied too
+
+        cmp al, 0                       ; end of string ?
+        jne .loop                       ; no
+
+    .shutdown:
+        mov edi, [ebp - 12]
+        mov esi, [ebp - 8]
+        mov eax, [ebp - 4]
+
+        leave
+        ret 8
 
 
 ; arg0: str         [ebp + 8]
@@ -459,6 +560,176 @@ strchr:
 
     leave
     ret 8
+
+; arg0: str to find in              [ebp + 8]
+; arg1: str to find                 [ebp + 12]
+;
+; ret: ptr if found, 0 otherwise    eax
+str_contains:
+        push ebp
+        mov ebp, esp
+
+        ; ebp - 4 = return value
+        ; ebp - 8 = find in str len
+        ; ebp - 12 = find str len
+        ; ebp - 16 = find in char loop counter
+        sub esp, 16                     ; local variable space
+
+        ; init values
+        mov dword [ebp - 4], 0          ; return value
+        mov dword [ebp - 16], 0         ; find in char loop counter
+
+        ; find find in str len
+        push dword [ebp + 8]            ; find in str
+        call strlen
+
+        mov [ebp - 8], eax              ; find in str len
+
+        ; find find str len
+        push dword [ebp + 12]           ; find str
+        call strlen
+
+        mov [ebp - 12], eax             ; find str len
+
+        ; compare each char of the find in str to the find str
+        ; and if match is found then see if subsequent chars
+        ; match the find str
+
+        mov esi, [ebp + 8]              ; find in str
+        mov edi, [ebp + 12]             ; find str
+
+    .loop:
+        cmp byte [esi], 0               ; end of find in str ?
+        je .shutdown
+
+        mov ecx, [ebp - 12]             ; find str len
+        .inner_loop:
+            cmpsb
+
+            jne .inner_loop_done
+
+            dec ecx
+            jz .find_str_found
+
+            jmp .inner_loop
+
+        .inner_loop_done:
+        
+        inc dword [ebp - 16]            ; find in char loop counter
+        mov edi, [ebp + 12]             ; find str
+        mov esi, [ebp + 8]              ; find in str
+        add esi, [ebp - 16]             ; find in char loop counter
+
+        jmp .loop
+
+    .find_str_found:
+        mov dword [ebp - 4], 1          ; return value
+
+
+    .shutdown:
+        mov eax, [ebp - 4]              ; return value
+
+        leave
+        ret 8
+
+; arg0: str to find in              [ebp + 8]
+; arg1: str to find                 [ebp + 12]
+;
+; ret: ptr if found, 0 otherwise    eax
+wstr_contains:
+        push ebp
+        mov ebp, esp
+
+        ; ebp - 4 = return value
+        ; ebp - 8 = find in str len
+        ; ebp - 12 = find str len
+        ; ebp - 16 = find in char loop counter
+        sub esp, 16                     ; local variable space
+
+        ; init values
+        mov dword [ebp - 4], 0          ; return value
+        mov dword [ebp - 16], 0         ; find in char loop counter
+
+        ; find find in str len
+        push dword [ebp + 8]            ; find in str
+        call wstrlen
+
+        mov [ebp - 8], eax              ; find in str len
+
+        ; find find str len
+        push dword [ebp + 12]           ; find str
+        call wstrlen
+
+        mov [ebp - 12], eax             ; find str len
+
+        ; compare each char of the find in str to the find str
+        ; and if match is found then see if subsequent chars
+        ; match the find str
+
+        mov esi, [ebp + 8]              ; find in str
+        mov edi, [ebp + 12]             ; find str
+
+    .loop:
+        cmp byte [esi], 0               ; end of find in str ?
+        je .shutdown
+
+        mov ecx, [ebp - 12]             ; find str len
+        .inner_loop:
+            cmpsw
+
+            jne .inner_loop_done
+
+            dec ecx
+            jz .find_str_found
+
+            jmp .inner_loop
+
+        .inner_loop_done:
+        
+        add dword [ebp - 16], 2         ; find in char loop counter
+        mov edi, [ebp + 12]             ; find str
+        mov esi, [ebp + 8]              ; find in str
+        add esi, [ebp - 16]             ; find in char loop counter
+
+        jmp .loop
+
+    .find_str_found:
+        mov dword [ebp - 4], 1          ; return value
+
+
+    .shutdown:
+        mov eax, [ebp - 4]              ; return value
+
+        leave
+        ret 8
+
+; arg0: str1            [ebp + 8]
+; arg1: str2            [ebp + 12]
+str_append:
+        push ebp
+        mov ebp, esp
+
+        ; ebp - 4 = return value
+        ; ebp - 8 = str1 len
+        sub esp, 8                      ; local variable space
+        
+        push dword [ebp + 8]            ; str1
+        call strlen
+
+        mov [ebp - 8], eax              ; str1 len
+
+        mov eax, [ebp - 8]              ; str1
+        add dword [ebp + 8], eax        ; points to the end of str1
+
+        push dword [ebp + 8]                  
+        push dword [ebp + 12]           ; str2
+        call strcpy
+
+    .shutdown:
+        xor eax, eax                    ; return value
+
+        leave
+        ret
 
 ; arg0: data            [ebp + 8]
 ; arg1: data_len        [ebp + 12]
@@ -1266,22 +1537,51 @@ sprintf:
         jmp .loop
 
         .print_string:
-            ; copy arg string to the buffer
-            mov eax, [ebp - 20]             ; offset from ebp
-            push edi
-            push dword [ebp + eax]          ; arg
-            call strcpy
+            lodsb
 
-            ; find strlen to get edi to the end of the str in buffer
-            mov eax, [ebp - 20]             ; offset from ebp
-            push dword [ebp + eax]          ; arg
-            call strlen                     ; str len in eax
+            cmp al, 'b'
+            je .print_single_byte_char
 
-            add edi, eax
+            cmp al, 'w'
+            je .print_double_byte_char
 
-            add dword [ebp - 20], 4         ; offset from ebp
-            inc dword [ebp - 16]            ; placeholder count
             jmp .loop
+
+            .print_single_byte_char:
+                ; copy arg string to the buffer
+                mov eax, [ebp - 20]             ; offset from ebp
+                push edi
+                push dword [ebp + eax]          ; arg
+                call strcpy
+
+                ; find strlen to get edi to the end of the str in buffer
+                mov eax, [ebp - 20]             ; offset from ebp
+                push dword [ebp + eax]          ; arg
+                call strlen                     ; str len in eax
+
+                add edi, eax
+
+                add dword [ebp - 20], 4         ; offset from ebp
+                inc dword [ebp - 16]            ; placeholder count
+                jmp .loop
+
+            .print_double_byte_char:
+                ; copy arg string to the buffer
+                mov eax, [ebp - 20]             ; offset from ebp
+                push edi
+                push dword [ebp + eax]          ; arg
+                call wstrcpya
+
+                ; find strlen to get edi to the end of the str in buffer
+                mov eax, [ebp - 20]             ; offset from ebp
+                push dword [ebp + eax]          ; arg
+                call wstrlen                    ; str len in eax
+
+                add edi, eax
+
+                add dword [ebp - 20], 4         ; offset from ebp
+                inc dword [ebp - 16]            ; placeholder count
+                jmp .loop
 
         .print_decimal:
             lodsb
@@ -1474,3 +1774,39 @@ print_string:
 
     leave
     ret 12
+
+; arg0: ptr to str          [ebp + 8]
+print_console:
+        push ebp
+        mov ebp, esp
+
+        ; ebp - 4 = return value
+        ; ebp - 8 = strlen
+        ; ebp - 12 = std handle
+        sub esp, 12                             ; allocate local variable space
+
+        mov dword [ebp - 4], 0                  ; return value
+
+        ; calculate str len
+        push dword [ebp + 8]                    ; ptr to str
+        call strlen
+        mov [ebp - 8], eax                      ; strlen
+
+        push STD_HANDLE_ENUM
+        call [get_std_handle]
+
+        mov [ebp - 12], eax                     ; std handle
+
+        push dword 0
+        push dword 0
+        push dword [ebp - 8]                    ; str len
+        push dword [ebp + 8]                    ; ptr to str
+        push dword [ebp - 12]                   ; std handle
+        call [write_file]
+
+    .shutdown:
+
+        mov eax, [ebp - 4]                      ; return value
+
+        leave
+        ret
