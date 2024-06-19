@@ -1148,7 +1148,7 @@ unxor_and_get_proc_addr:
 .not_get_proc_addr:
     push dword [ebp + 12]                       ; xor str
     push dword [ebp + 8]                        ; base addr
-    call [get_proc_addr]
+    call [get_proc_address]
 
     mov [ebp - 4], eax                          ; return value
 
@@ -1166,12 +1166,12 @@ populate_kernel_function_ptrs_by_name:
     mov ebp, esp
 
     push dword 1
-    push get_proc_addr_xor.len
-    push get_proc_addr_xor
+    push get_proc_address_xor.len
+    push get_proc_address_xor
     push dword [ebp + 8]
     call unxor_and_get_proc_addr                ; proc addr
 
-    mov [get_proc_addr], eax                    ; GetProcAddress addr
+    mov [get_proc_address], eax                    ; GetProcAddress addr
 
     push dword 0
     push dword get_last_error_xor.len

@@ -1,6 +1,6 @@
 kernel32: dd ?
 get_last_error: dd ?
-get_proc_addr: dd ?
+get_proc_address: dd ?
 load_library_a: dd ?
 get_module_handle_a: dd ?
 get_current_process: dd ?
