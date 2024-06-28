@@ -906,6 +906,70 @@ my_xor:
     leave
     ret
 
+get_ntdll_module_handle:
+   push rbp
+    mov rbp, rsp
+
+    ; [rbp - 8] = First List Entry
+    ; [rbp - 16] = Current List Entry
+    ; [rbp - 24] = Table Entry
+    ; [rbp - 32] = return addr
+    sub rsp, 32                         ; allocate local variable space
+    sub rsp, 32                         ; allocate shadow space
+
+    mov rcx, ntdll_xor
+    mov rdx, ntdll_xor.len
+    mov r8, xor_key
+    mov r9, xor_key.len
+    call my_xor                         ; kernel32.dll clear text
+
+    mov rax, gs:[0x60]                  ; peb
+    add rax, 0x18                       ; *ldr
+    mov rax, [rax]                      ; ldr
+    add rax, 0x20                       ; InMemoryOrderModuleList
+
+    mov [rbp - 8], rax                  ; *FirstModule
+    mov rax, [rax]
+    mov [rbp - 16], rax                 ; CurrentModule
+    mov qword [rbp - 32], 0             ; return code
+
+.loop:
+    cmp rax, [rbp - 8]                  ; CurrentModule == FirstModule ?
+    je .loop_end_equal
+        sub rax, 16                     ; *TableEntry
+        mov [rbp - 24], rax             ; *TableEntry
+
+        add rax, 0x58                   ; *BaseDLLName
+        add rax, 0x8                    ; BaseDLLName.Buffer
+
+        mov rcx, ntdll_xor
+        mov rdx, [rax]
+        call strcmpiAW
+
+        cmp rax, 1                      ; strings match
+        je .module_found
+
+        mov rax, [rbp - 16]             ; CurrentModule
+        mov rax, [rax]                  ; CurrentModule = CurrentModule->Flink
+        mov [rbp - 16], rax             ; CurrentModule
+
+        jmp .loop
+
+.module_found:
+    mov rax, [rbp - 24]                 ; *TableEntry
+    add rax, 0x30                       ; TableEntry->DllBase
+    mov rax, [rax]
+    mov [rbp - 32], rax
+
+    jmp .shutdown
+
+.loop_end_equal:
+
+.shutdown:
+    mov rax, [rbp - 32]                 ; return code
+
+    leave
+    ret
 
 get_kernel_module_handle:
     push rbp

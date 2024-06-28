@@ -29,6 +29,8 @@ main:
     sub rsp, 544                                    ; allocate local variable space
     sub rsp, 32                                     ; allocate shadow space
 
+    call get_ntdll_module_handle
+
     call get_kernel_module_handle
 
     mov [rbp - 8], rax                              ; kernel handle

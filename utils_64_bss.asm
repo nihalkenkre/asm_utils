@@ -1,3 +1,4 @@
+ntdll: dq ?
 kernel32: dq ?
 get_last_error: dq ?
 get_proc_address: dq ?
