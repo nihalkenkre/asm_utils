@@ -5,18 +5,6 @@ global main
 
 %include '..\utils_64_text.asm'
 
-func:
-    push rbx
-    push rbp
-    mov rbp, rsp
-
-    push rcx
-    pop rcx
-
-    leave
-    pop rbx
-    ret
-
 main:
     push rbp
     mov rbp, rsp
