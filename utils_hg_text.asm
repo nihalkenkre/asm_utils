@@ -620,7 +620,7 @@ get_ntdll_module_handle_hg:
 ; format specifiers: %(s/d/x)(b/w/d/q)
 ; s/d/x: string, decimal, hex
 ; b/w/d/q: byte, word, dword, qword value
-sprintf:
+sprintf_hg:
     push rbp
     mov rbp, rsp
 
