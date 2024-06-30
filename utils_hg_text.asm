@@ -614,3 +614,303 @@ get_ntdll_module_handle_hg:
 
     leave
     ret
+; arg0: ptr to buffer               rcx
+; arg1: ptr to str                  rdx
+; arg2 ...: args to sprintf         r8, r9, rbp + 48 ..... 
+; format specifiers: %(s/d/x)(b/w/d/q)
+; s/d/x: string, decimal, hex
+; b/w/d/q: byte, word, dword, qword value
+sprintf:
+    push rbp
+    mov rbp, rsp
+
+    mov [rbp + 16], rcx                     ; ptr to buffer
+    mov [rbp + 24], rdx                     ; ptr to str
+    mov [rbp + 32], r8                      ; arg1 to buffer
+    mov [rbp + 40], r9                      ; arg2 to buffer
+
+    ; rbp - 8 = return value
+    ; rbp - 16 = esi
+    ; rbp - 24 = edi
+    ; rbp - 32 = place holder count
+    ; rbp - 40 = offset from rbp
+    ; rbp - 48 = number of bits to shift right
+    ; rbp - 56 = rbx
+    ; rbp - 64 = quotient from print decimal division
+    ; rbp - 88 = temp buffer for decimal conversion (20 digit) + 5 byte padding
+    ; rbp - 96 = arg size (db, xb = 1, dw, xw = 2, dd, xd = 4, dq, xq = 8), used to point to the next arg by adding to offset from rbp, currently passing 8 for all to keep OutputDebugStringA from crashing !?!?
+    sub rsp, 96                             ; allocate local variable space
+    sub rsp, 32                             ; allocate shadow space
+
+    mov qword [rbp - 8], 0                  ; return value
+    mov [rbp - 16], rsi                     ; save rsi
+    mov [rbp - 24], rdi                     ; save rdi
+    mov qword [rbp - 32], 0                 ; place holder count
+    mov qword [rbp - 56], rbx               ; save rbx
+
+    mov qword [rbp - 40], 32                ; offset from rbp
+
+    mov rsi, [rbp + 24]                     ; ptr to str
+    mov rdi, [rbp + 16]                     ; ptr to buffer
+
+.loop:
+    lodsb
+
+    cmp al, '%'
+    je .process_placeholder
+
+    stosb
+
+    cmp al, 0
+    je .end_of_loop
+
+    jmp .loop
+    .process_placeholder:
+        lodsb
+
+        cmp al, 's'
+        je .print_string
+
+        cmp al, 'd'
+        je .print_decimal
+
+        cmp al, 'x'
+        je .print_hex
+
+        stosb                               ; not a placeholder, must be a string, copy it
+
+        jmp .loop
+
+        .print_string:
+            lodsb
+            
+            cmp al, 'b'
+            je .print_single_byte_char
+
+            cmp al, 'w'
+            je .print_double_byte_char
+
+            jmp .loop
+
+            .print_single_byte_char:
+                ; copy arg string to the buffer
+                mov rax, [rbp - 40]             ; offset from rbp
+                mov rcx, [rbp + rax]
+                mov rdx, rdi
+                call strcpy
+
+                ; find strlen to get rdi to the end of the str in buffer
+                mov rax, [rbp - 40]             ; offset from rbp
+                mov rcx, [rbp + rax]            ; arg
+                call strlen
+
+                add rdi, rax
+
+                add qword [rbp - 40], 8         ; offset from rbp
+                inc qword [rbp - 32]            ; place holder count
+                jmp .loop
+
+            .print_double_byte_char:
+                ; copy arg string to the buffer
+                mov rax, [rbp - 40]             ; offset from rbp
+                mov rcx, [rbp + rax]
+                mov rdx, rdi
+                call wstrcpya
+
+                ; find strlen to get rdi to the end of the str in buffer
+                mov rax, [rbp - 40]             ; offset from rbp
+                mov rcx, [rbp + rax]            ; arg
+                call wstrlen
+
+                add rdi, rax
+
+                add qword [rbp - 40], 8         ; offset from rbp, ideally should be arg size [rbp - 96]
+                inc qword [rbp - 32]            ; place holder count
+                jmp .loop
+
+        .print_decimal:
+            lodsb
+            
+            cmp al, 'b'
+            je .print_decimal_byte
+
+            cmp al, 'w'
+            je .print_decimal_word
+
+            cmp al, 'd'
+            je .print_decimal_dword
+
+            cmp al, 'q'
+            je .print_decimal_qword
+
+            jmp .loop
+
+            .print_decimal_byte:
+                mov rax, [rbp - 40]         ; offset from rbp
+                movzx eax, byte [rbp + rax] ; arg
+                mov qword [rbp - 96], 1     ; arg size
+                jmp .continue_from_decimal_data_size_check
+            .print_decimal_word:
+                mov rax, [rbp - 40]         ; offset from rbp
+                movzx eax, word [rbp + rax] ; arg
+                mov qword [rbp - 96], 2     ; arg size
+                jmp .continue_from_decimal_data_size_check
+            .print_decimal_dword:
+                mov rax, [rbp - 40]         ; offset from rbp
+                mov eax, [rbp + rax]        ; arg
+                mov qword [rbp - 96], 4     ; arg size
+                jmp .continue_from_decimal_data_size_check
+            .print_decimal_qword:
+                mov rax, [rbp - 40]         ; offset from rbp
+                mov rax, [rbp + rax]        ; arg
+                mov qword [rbp - 96], 8     ; arg size
+                jmp .continue_from_decimal_data_size_check
+
+            .continue_from_decimal_data_size_check:
+
+            mov rcx, 10                     ; divisor
+            xor rbx, rbx                    ; number of digits in the decimal
+
+            mov r10, rsi                    ; temp save rsi
+            mov r11, rdi                    ; temp save rdi
+
+            mov rdi, rbp
+            sub rdi, 65                     ; temp buffer for digits (reverse)
+            std                             ; set direction flag since the digits are written in reverse order
+
+            .print_decimal_loop:
+                xor edx, edx
+                div rcx
+
+                mov [rbp - 64], rax         ; save quotient
+                mov rax, rdx                ; remainder
+                add rax, 48                 ; ascii value of integer
+
+                stosb
+
+                mov rax, [rbp - 64]         ; restore quotient
+
+                inc rbx
+                cmp rax, 0
+                jne .print_decimal_loop
+
+            mov rdi, r11                    ; temp restore rdi
+
+            cld                             ; clear direction flag
+
+            mov rsi, rbp
+            sub rsi, 64                     ; temp buffer for digits (reverse)
+            sub rsi, rbx
+
+            .final_copy_loop:
+                movsb
+
+                dec rbx
+                jnz .final_copy_loop
+
+            mov rsi, r10                    ; temp restore rsi
+            inc qword [rbp - 32]            ; place holder count
+            add qword [rbp - 40], 8         ; offset from rbp, ideally should be arg size [rbp - 96]
+            jmp .loop
+
+        .print_hex:
+            lodsb
+
+            cmp al, 'b'
+            je .print_hex_byte
+
+            cmp al, 'w'
+            je .print_hex_word
+
+            cmp al, 'd'
+            je .print_hex_dword
+
+            cmp al, 'q'
+            je .print_hex_qword
+
+            jmp .loop
+
+            .print_hex_byte:
+                mov qword [rbp - 48], 8     ; start with 8 bits to shift right
+                mov qword [rbp - 96], 1     ; arg size
+                jmp .continue_from_hex_data_size_check
+            .print_hex_word:
+                mov qword [rbp - 48], 16    ; start with 16 bits to shift right
+                mov qword [rbp - 96], 2     ; arg size
+                jmp .continue_from_hex_data_size_check
+            .print_hex_dword:
+                mov qword [rbp - 48], 32    ; start with 32 bits to shift right
+                mov qword [rbp - 96], 4     ; arg size
+                jmp .continue_from_hex_data_size_check
+            .print_hex_qword:
+                mov qword [rbp - 48], 64    ; start with 64 bits to shift right
+                mov qword [rbp - 96], 8     ; arg size
+                jmp .continue_from_hex_data_size_check
+
+            .continue_from_hex_data_size_check:
+
+            mov rdx, hex_digits
+
+            .print_hex_loop:
+                cmp qword [rbp - 96], 1     ; arg size
+                je .copy_byte
+
+                cmp qword [rbp - 96], 2     ; arg size
+                je .copy_word
+
+                cmp qword [rbp - 96], 4     ; arg size
+                je .copy_dword
+
+                cmp qword [rbp - 96], 8     ; arg size
+                je .copy_qword
+
+                .copy_byte:
+                    mov rax, [rbp - 40]         ; offset from rbp
+                    movzx eax, byte [rbp + rax] ; arg
+                    jmp .continue_from_copy
+
+                .copy_word:
+                    mov rax, [rbp - 40]         ; offset from rbp
+                    movzx eax, word [rbp + rax] ; arg
+                    jmp .continue_from_copy
+
+                .copy_dword:
+                    mov rax, [rbp - 40]         ; offset from rbp
+                    mov eax, [rbp + rax]        ; arg
+                    jmp .continue_from_copy
+
+                .copy_qword:
+                    mov rax, [rbp - 40]         ; offset from rbp
+                    mov rax, [rbp + rax]        ; arg
+                    jmp .continue_from_copy
+                
+                .continue_from_copy:
+
+                    sub qword [rbp - 48], 4     ; nbits to shift right
+                    mov rcx, [rbp - 48]         ; nbits to shift right
+
+                    shr rax, cl                 ; shift right and 'and', so just the nibble is left in al
+                    and al, 0x0f
+
+                    movzx ebx, byte al
+                    mov al, [rdx + rbx]         ; the corresponding 'letter' in al
+
+                    stosb
+
+                    cmp qword [rbp - 48], 0     ; nbits to shift right
+                    jne .print_hex_loop
+
+            inc qword [rbp - 32]                ; place holder count
+            add qword [rbp - 40], 8             ; offset from rbp, ideally should be arg size [rbp - 96]
+            jmp .loop
+
+.end_of_loop:
+
+.shutdown:
+    mov rbx, [rbp - 56]                     ; restore rbx
+    mov rdi, [rbp - 24]                     ; restore rdi
+    mov rsi, [rbp - 16]                     ; restore rsi
+    mov rax, [rbp - 8]                      ; restore rax
+
+    leave
+    ret
